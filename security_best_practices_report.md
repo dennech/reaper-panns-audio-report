@@ -9,7 +9,7 @@ Current status:
 - No committed secrets were found in the repository.
 - No personal absolute user-home paths remain in the tracked working tree.
 - The original security findings identified during the audit were remediated in the current code.
-- The published branch history is intended to be rewritten as part of this remediation so that accidentally committed local paths are removed from accessible Git history.
+- The published `main` branch history was rewritten so that accidentally committed local paths are no longer present in accessible branch history on GitHub.
 
 Threat model:
 
