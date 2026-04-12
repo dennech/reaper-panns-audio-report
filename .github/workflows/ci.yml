@@ -21,6 +21,10 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install "numpy>=1.26,<2.0" "soundfile>=0.12,<1.0" "pytest>=8.2,<9.0"
 
+      - name: Set up Lua
+        run: |
+          brew install lua
+
       - name: Run Python tests
         run: |
           python3 tests/scripts/run_python_tests.py --scope python
@@ -28,10 +32,6 @@ jobs:
       - name: Run integration tests
         run: |
           python3 tests/scripts/run_python_tests.py --scope integration
-
-      - name: Set up Lua
-        run: |
-          brew install lua
 
       - name: Run Lua tests
         run: |
