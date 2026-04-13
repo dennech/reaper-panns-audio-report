@@ -78,6 +78,7 @@ Troubleshooting:
 - The first release is intentionally conservative: reliability and fallback behavior are prioritized over maximum acceleration.
 - The report is clip-level tagging guidance, not event detection or timeline localization.
 - The script cleans up only its own temporary export WAVs, job files, and logs inside `Data/reaper-panns-item-report/{tmp,jobs,logs}`. It never deletes the original source audio or project media.
-- The compact report now uses built-in colorful sticker icons instead of system emoji, so tag chips look consistent across REAPER/ReaImGui setups.
+- The compact report now uses bundled Noto Emoji PNG assets instead of system text emoji or custom sticker art, so tag chips stay consistent across REAPER/ReaImGui setups.
+- The vendored emoji source lives under `reaper/assets/noto-emoji/`, and `scripts/generate_report_emoji_assets.py` regenerates the self-contained Lua bundles when those assets change.
 - If the image path is unavailable in a specific session, the UI falls back to plain text labels only. Analysis behavior is unchanged.
 - For export diagnostics without running the model, use `reaper/PANNs Item Report - Debug Export.lua`.

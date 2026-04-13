@@ -32,7 +32,7 @@
 
 ## The compact view does not show the colorful icons
 
-- The current build uses embedded PNG sticker icons instead of system emoji.
+- The current build uses bundled Noto Emoji PNG assets instead of system emoji.
 - If the compact chips show text without icons, the image decode/render path is unavailable in that REAPER session.
 - Analysis quality is unaffected; this is only a presentation fallback.
 - Restarting the script is usually enough to restore the image path if the session was in a bad UI state.

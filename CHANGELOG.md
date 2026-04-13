@@ -13,4 +13,4 @@
 - Expanded the compact report to show more cues and tags, added a clearer `Another` rerun flow, and upgraded the fallback icon style for non-emoji ReaImGui setups.
 - Added safe cleanup for temporary export WAVs and finished job artifacts so the script no longer leaves stale app-owned files behind.
 - Documented rerun workflow, export diagnostics, and temporary-file cleanup behavior in the English and Russian docs.
-- Replaced unreliable mixed-text emoji rendering with embedded image-backed sticker icons and removed the `Icons` mode selector.
+- Replaced unreliable mixed-text emoji rendering and custom sticker art with bundled Noto Emoji image assets, added a reproducible asset generator, and kept a plain-text fallback when image handles are unavailable.

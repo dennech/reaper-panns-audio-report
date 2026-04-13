@@ -1,30 +1,9 @@
+local report_icon_map = require("report_icon_map")
+
 local M = {}
 
 M.COMPACT_HIGHLIGHT_LIMIT = 5
 M.COMPACT_TAG_LIMIT = 6
-
-local LABEL_ICON_RULES = {
-  {
-    patterns = { "synth", "synthesizer", "electronic" },
-    icon_key = "synth",
-  },
-  {
-    patterns = { "speech", "narration", "monologue", "conversation", "talking" },
-    icon_key = "speech",
-  },
-  {
-    patterns = { "sigh", "breath", "gasp", "pant", "exhale", "inhale" },
-    icon_key = "breath",
-  },
-  {
-    patterns = { "click", "clicking", "tap", "typing" },
-    icon_key = "click",
-  },
-  {
-    patterns = { "music", "song", "melody", "singing" },
-    icon_key = "music",
-  },
-}
 
 local BUCKET_LABELS = {
   strong = "Strong",
@@ -32,15 +11,6 @@ local BUCKET_LABELS = {
   possible = "Possible",
   weak = "Low",
 }
-
-local SECTION_ICONS = {
-  cues = "cues",
-  tags = "tags",
-}
-
-local function normalized_label(label)
-  return tostring(label or ""):lower()
-end
 
 local function clone_predictions(predictions)
   local rows = {}
@@ -81,22 +51,11 @@ local function support_text(row)
 end
 
 function M.section_icon_key(section_key)
-  return SECTION_ICONS[section_key] or "generic"
+  return report_icon_map.section_icon_key(section_key)
 end
 
-function M.label_icon_key(label, bucket)
-  local lowered = normalized_label(label)
-  for _, rule in ipairs(LABEL_ICON_RULES) do
-    for _, pattern in ipairs(rule.patterns) do
-      if lowered:find(pattern, 1, true) then
-        return rule.icon_key
-      end
-    end
-  end
-  if bucket == "possible" or bucket == "weak" then
-    return "generic"
-  end
-  return "generic"
+function M.label_icon_key(label, _bucket)
+  return report_icon_map.label_icon_key(label)
 end
 
 function M.decorate_chip_label(label, score)

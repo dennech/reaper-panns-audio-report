@@ -40,3 +40,5 @@ Acceptance for all manual cases:
 - After a finished run, selecting a different item and clicking `Another` should start a new analysis without closing the window.
 - Completed runs should not leave a fresh export WAV behind in `Data/reaper-panns-item-report/tmp`.
 - Cleanup must touch only plugin-owned artifacts under `tmp`, `jobs`, and `logs`; original source media must remain untouched.
+- Compact chips and section/status rows should render bundled Noto Emoji images rather than custom sticker art or text-emoji glyphs.
+- If one emoji image handle becomes invalid, the affected UI row should degrade to plain text instead of crashing the script.

@@ -36,6 +36,7 @@
 - Отчёт — это clip-level tagging, а не event detection.
 - Временные export WAV и завершённые run artifacts удаляются автоматически. Исходные media files скрипт не удаляет.
 - Если `ReaImGui` не установлен, скрипт покажет инструкцию вместо падения.
-- В compact UI теперь используются встроенные sticker-иконки, поэтому он больше не зависит от системного emoji-rendering.
+- В compact UI теперь используются bundled Noto Emoji PNG assets, поэтому он больше не зависит от системного emoji-rendering.
+- Pinned upstream source для этих ассетов описан в `reaper/assets/noto-emoji/README.md`.
 - Если image path в конкретной сессии REAPER недоступен, UI аккуратно деградирует в plain text без пустых квадратов.
 - Windows намеренно вынесен за рамки v1.
