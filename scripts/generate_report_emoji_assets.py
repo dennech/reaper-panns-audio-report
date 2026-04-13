@@ -5,6 +5,9 @@ from __future__ import annotations
 
 import base64
 import csv
+import math
+import struct
+import zlib
 from collections import Counter, OrderedDict
 from pathlib import Path
 
@@ -87,6 +90,9 @@ ICON_FILES: "OrderedDict[str, str]" = OrderedDict(
         ("room", "emoji_u1f3e0.png"),
     ]
 )
+
+ICON_SIZE = 128
+ATLAS_PADDING = 8
 
 SECTION_ICON_KEYS = {
     "cues": "cues",
@@ -238,6 +244,151 @@ def wrap_base64(text: str, width: int = 88) -> list[str]:
     return [text[index : index + width] for index in range(0, len(text), width)]
 
 
+def png_chunk(chunk_type: bytes, payload: bytes) -> bytes:
+    return (
+        struct.pack(">I", len(payload))
+        + chunk_type
+        + payload
+        + struct.pack(">I", zlib.crc32(chunk_type + payload) & 0xFFFFFFFF)
+    )
+
+
+def paeth_predictor(a: int, b: int, c: int) -> int:
+    p = a + b - c
+    pa = abs(p - a)
+    pb = abs(p - b)
+    pc = abs(p - c)
+    if pa <= pb and pa <= pc:
+        return a
+    if pb <= pc:
+        return b
+    return c
+
+
+def unfilter_scanlines(raw: bytes, width: int, height: int, bpp: int) -> bytes:
+    stride = width * bpp
+    cursor = 0
+    rows = []
+    prev = bytearray(stride)
+
+    for _ in range(height):
+        filter_type = raw[cursor]
+        cursor += 1
+        row = bytearray(raw[cursor : cursor + stride])
+        cursor += stride
+
+        if filter_type == 1:
+            for index in range(stride):
+                left = row[index - bpp] if index >= bpp else 0
+                row[index] = (row[index] + left) & 0xFF
+        elif filter_type == 2:
+            for index in range(stride):
+                row[index] = (row[index] + prev[index]) & 0xFF
+        elif filter_type == 3:
+            for index in range(stride):
+                left = row[index - bpp] if index >= bpp else 0
+                up = prev[index]
+                row[index] = (row[index] + ((left + up) // 2)) & 0xFF
+        elif filter_type == 4:
+            for index in range(stride):
+                left = row[index - bpp] if index >= bpp else 0
+                up = prev[index]
+                up_left = prev[index - bpp] if index >= bpp else 0
+                row[index] = (row[index] + paeth_predictor(left, up, up_left)) & 0xFF
+        elif filter_type != 0:
+            raise ValueError(f"Unsupported PNG filter type: {filter_type}")
+
+        rows.append(bytes(row))
+        prev = row
+
+    return b"".join(rows)
+
+
+def decode_png_rgba(path: Path) -> tuple[int, int, bytes]:
+    data = path.read_bytes()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError(f"{path} is not a PNG file")
+
+    cursor = 8
+    width = None
+    height = None
+    idat_parts: list[bytes] = []
+
+    while cursor < len(data):
+        chunk_len = struct.unpack(">I", data[cursor : cursor + 4])[0]
+        chunk_type = data[cursor + 4 : cursor + 8]
+        chunk_data = data[cursor + 8 : cursor + 8 + chunk_len]
+        cursor += chunk_len + 12
+
+        if chunk_type == b"IHDR":
+            width, height, bit_depth, color_type, compression, filter_method, interlace = struct.unpack(
+                ">IIBBBBB", chunk_data
+            )
+            if bit_depth != 8 or color_type != 6 or compression != 0 or filter_method != 0 or interlace != 0:
+                raise ValueError(f"Unsupported PNG format in {path}")
+        elif chunk_type == b"IDAT":
+            idat_parts.append(chunk_data)
+        elif chunk_type == b"IEND":
+            break
+
+    if width is None or height is None:
+        raise ValueError(f"Missing IHDR in {path}")
+
+    raw = zlib.decompress(b"".join(idat_parts))
+    return width, height, unfilter_scanlines(raw, width, height, 4)
+
+
+def encode_png_rgba(width: int, height: int, pixels: bytes) -> bytes:
+    stride = width * 4
+    scanlines = bytearray()
+    for row_index in range(height):
+        scanlines.append(0)
+        start = row_index * stride
+        scanlines.extend(pixels[start : start + stride])
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    idat = zlib.compress(bytes(scanlines), level=9)
+
+    return b"".join(
+        [
+            b"\x89PNG\r\n\x1a\n",
+            png_chunk(b"IHDR", ihdr),
+            png_chunk(b"IDAT", idat),
+            png_chunk(b"IEND", b""),
+        ]
+    )
+
+
+def build_atlas() -> tuple[bytes, int, int, OrderedDict[str, dict[str, int]]]:
+    icon_count = len(ICON_FILES)
+    columns = max(1, math.ceil(math.sqrt(icon_count)))
+    rows = math.ceil(icon_count / columns)
+    cell_size = ICON_SIZE + (ATLAS_PADDING * 2)
+    atlas_width = columns * cell_size
+    atlas_height = rows * cell_size
+    atlas_pixels = bytearray(atlas_width * atlas_height * 4)
+    rects: "OrderedDict[str, dict[str, int]]" = OrderedDict()
+
+    for index, (icon_key, filename) in enumerate(ICON_FILES.items()):
+        width, height, rgba = decode_png_rgba(ASSET_DIR / filename)
+        if width != ICON_SIZE or height != ICON_SIZE:
+            raise ValueError(f"Unexpected icon size for {filename}: {width}x{height}")
+
+        column = index % columns
+        row = index // columns
+        dest_x = column * cell_size + ATLAS_PADDING
+        dest_y = row * cell_size + ATLAS_PADDING
+        rects[icon_key] = {"x": dest_x, "y": dest_y, "w": width, "h": height}
+
+        for row_index in range(height):
+            src_start = row_index * width * 4
+            src_end = src_start + (width * 4)
+            dst_start = ((dest_y + row_index) * atlas_width + dest_x) * 4
+            atlas_pixels[dst_start : dst_start + (width * 4)] = rgba[src_start:src_end]
+
+    return encode_png_rgba(atlas_width, atlas_height, bytes(atlas_pixels)), atlas_width, atlas_height, rects
+
+
 def choose_icon_key(label: str) -> str:
     if label in EXACT_ICON_KEYS:
         return EXACT_ICON_KEYS[label]
@@ -260,6 +411,7 @@ def load_labels() -> list[str]:
 
 
 def generate_asset_bundle() -> str:
+    atlas_png, atlas_width, atlas_height, rects = build_atlas()
     lines: list[str] = []
     lines.append("-- Generated by scripts/generate_report_emoji_assets.py")
     lines.append(f"-- Upstream: {UPSTREAM_REPO} @ {UPSTREAM_COMMIT}")
@@ -278,14 +430,24 @@ def generate_asset_bundle() -> str:
         lines.append(f"  {lua_quote(key)},")
     lines.append("}")
     lines.append("")
-    lines.append("M.PNGS = {")
-    for key, filename in ICON_FILES.items():
-        payload = base64.b64encode((ASSET_DIR / filename).read_bytes()).decode("ascii")
-        wrapped = wrap_base64(payload)
-        lines.append(f"  {key} = [[{wrapped[0]}")
-        for chunk in wrapped[1:]:
-            lines.append(chunk)
-        lines.append("]],")
+    lines.append(f"M.ATLAS_WIDTH = {atlas_width}")
+    lines.append(f"M.ATLAS_HEIGHT = {atlas_height}")
+    lines.append(f"M.ICON_SIZE = {ICON_SIZE}")
+    lines.append(f"M.ATLAS_PADDING = {ATLAS_PADDING}")
+    lines.append("")
+    atlas_payload = base64.b64encode(atlas_png).decode("ascii")
+    atlas_wrapped = wrap_base64(atlas_payload)
+    lines.append(f"M.ATLAS_PNG = [[{atlas_wrapped[0]}")
+    for chunk in atlas_wrapped[1:]:
+        lines.append(chunk)
+    lines.append("]]")
+    lines.append("")
+    lines.append("M.ICON_RECTS = {")
+    for key, rect in rects.items():
+        lines.append(
+            "  %s = { x = %d, y = %d, w = %d, h = %d },"
+            % (key, rect["x"], rect["y"], rect["w"], rect["h"])
+        )
     lines.append("}")
     lines.append("")
     lines.append("return M")

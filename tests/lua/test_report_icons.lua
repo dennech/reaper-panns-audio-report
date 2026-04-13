@@ -30,16 +30,34 @@ function tests.test_icon_catalog_is_noto_based()
   luaunit.assertEquals(report_icons.upstream_font_license(), "OFL-1.1")
 end
 
-function tests.test_icon_png_data_decodes_png_headers()
-  for _, icon_key in ipairs({ "speech", "synth", "breath", "click", "music", "generic", "brand", "ready", "tags" }) do
-    local png = report_icons.icon_png_data(icon_key)
-    luaunit.assertEquals(png ~= nil, true)
-    luaunit.assertEquals(png:sub(1, 8), "\137PNG\r\n\26\n")
-  end
+function tests.test_icon_png_data_decodes_atlas_png_headers()
+  local png = report_icons.icon_png_data("speech")
+  luaunit.assertEquals(png ~= nil, true)
+  luaunit.assertEquals(png:sub(1, 8), "\137PNG\r\n\26\n")
+  luaunit.assertEquals(report_icons.icon_png_data("brand"), png)
 end
 
 function tests.test_unknown_icon_returns_nil()
   luaunit.assertEquals(report_icons.icon_png_data("missing"), nil)
+end
+
+function tests.test_atlas_rects_and_uvs_are_available_for_known_icons()
+  local atlas_width, atlas_height = report_icons.atlas_dimensions()
+  luaunit.assertEquals(atlas_width > 0, true)
+  luaunit.assertEquals(atlas_height > 0, true)
+
+  for _, icon_key in ipairs({ "speech", "synth", "breath", "click", "music", "generic", "brand", "ready", "tags" }) do
+    local rect = report_icons.icon_rect(icon_key)
+    local uv = report_icons.icon_uv(icon_key)
+    luaunit.assertEquals(rect ~= nil, true, icon_key)
+    luaunit.assertEquals(uv ~= nil, true, icon_key)
+    luaunit.assertEquals(rect.w > 0, true, icon_key)
+    luaunit.assertEquals(rect.h > 0, true, icon_key)
+    luaunit.assertEquals(rect.x + rect.w <= atlas_width, true, icon_key)
+    luaunit.assertEquals(rect.y + rect.h <= atlas_height, true, icon_key)
+    luaunit.assertEquals(uv.uv0_x < uv.uv1_x, true, icon_key)
+    luaunit.assertEquals(uv.uv0_y < uv.uv1_y, true, icon_key)
+  end
 end
 
 function tests.test_full_shipped_label_set_maps_to_known_icons()
@@ -49,23 +67,21 @@ function tests.test_full_shipped_label_set_maps_to_known_icons()
     local icon_key = report_icon_map.label_icon_key(label)
     luaunit.assertEquals(report_icon_map.has_known_label(label), true, label)
     luaunit.assertEquals(icon_key ~= "generic", true, label)
-    luaunit.assertEquals(report_icons.icon_png_data(icon_key) ~= nil, true, label .. " -> " .. tostring(icon_key))
+    luaunit.assertEquals(report_icons.icon_rect(icon_key) ~= nil, true, label .. " -> " .. tostring(icon_key))
   end
 end
 
 function tests.test_unknown_runtime_label_falls_back_to_generic_icon()
   luaunit.assertEquals(report_icon_map.has_known_label("Totally unknown synthetic label"), false)
   luaunit.assertEquals(report_icon_map.label_icon_key("Totally unknown synthetic label"), "generic")
-  luaunit.assertEquals(report_icons.icon_png_data("generic") ~= nil, true)
+  luaunit.assertEquals(report_icons.icon_rect("generic") ~= nil, true)
 end
 
 function tests.test_image_invalidates_bad_handle()
   local cache = {
     loaded = true,
     available = true,
-    images = {
-      speech = { valid = false },
-    },
+    image = { valid = false },
   }
   local fake_imgui = {
     ValidatePtr = function(image, kind)
@@ -73,8 +89,9 @@ function tests.test_image_invalidates_bad_handle()
     end,
   }
 
+  report_icons.begin_frame(cache)
   luaunit.assertEquals(report_icons.image(fake_imgui, cache, "speech"), nil)
-  luaunit.assertEquals(cache.images.speech, nil)
+  luaunit.assertEquals(cache.image, nil)
   luaunit.assertEquals(cache.loaded, false)
   luaunit.assertEquals(cache.available, false)
 end
@@ -82,11 +99,9 @@ end
 function tests.test_ensure_loaded_recreates_invalid_handles()
   local created = 0
   local cache = {
-    loaded = true,
-    available = true,
-    images = {
-      speech = { valid = false },
-    },
+    loaded = false,
+    available = false,
+    image = nil,
   }
   local fake_imgui = {
     ValidatePtr = function(image, kind)
@@ -98,28 +113,23 @@ function tests.test_ensure_loaded_recreates_invalid_handles()
     end,
   }
 
-  report_icons.invalidate(cache, "speech")
   report_icons.ensure_loaded(fake_imgui, cache)
 
-  luaunit.assertEquals(created > 0, true)
+  luaunit.assertEquals(created, 1)
   luaunit.assertEquals(cache.loaded, true)
   luaunit.assertEquals(cache.available, true)
-  luaunit.assertEquals(cache.images.speech.valid, true)
+  luaunit.assertEquals(cache.image.valid, true)
 end
 
 function tests.test_ensure_loaded_skips_full_reload_for_warm_cache()
-  local validate_calls = 0
   local create_calls = 0
   local cache = {
     loaded = true,
     available = true,
-    images = {
-      speech = { valid = true },
-    },
+    image = { valid = true },
   }
   local fake_imgui = {
     ValidatePtr = function(image, kind)
-      validate_calls = validate_calls + 1
       return kind == "ImGui_Image*" and image.valid == true
     end,
     CreateImageFromMem = function()
@@ -130,7 +140,6 @@ function tests.test_ensure_loaded_skips_full_reload_for_warm_cache()
 
   report_icons.ensure_loaded(fake_imgui, cache)
 
-  luaunit.assertEquals(validate_calls, 0)
   luaunit.assertEquals(create_calls, 0)
   luaunit.assertEquals(cache.available, true)
 end
@@ -139,29 +148,39 @@ function tests.test_icon_frame_stats_track_lookups_and_invalidations()
   local cache = {
     loaded = true,
     available = true,
-    images = {
-      speech = { valid = true },
-      breath = { valid = false },
-    },
+    image = { valid = true },
   }
+  local validate_calls = 0
   local fake_imgui = {
     ValidatePtr = function(image, kind)
+      validate_calls = validate_calls + 1
       return kind == "ImGui_Image*" and image.valid == true
     end,
   }
 
   report_icons.begin_frame(cache)
   report_icons.note_draw(cache)
+  report_icons.note_text_fallback(cache)
   luaunit.assertEquals(report_icons.image(fake_imgui, cache, "speech") ~= nil, true)
-  luaunit.assertEquals(report_icons.image(fake_imgui, cache, "breath"), nil)
+  luaunit.assertEquals(report_icons.image(fake_imgui, cache, "breath") ~= nil, true)
 
   local stats = report_icons.frame_stats(cache)
   luaunit.assertEquals(stats.image_calls, 2)
   luaunit.assertEquals(stats.draw_calls, 1)
-  luaunit.assertEquals(stats.hits, 1)
-  luaunit.assertEquals(stats.misses, 1)
-  luaunit.assertEquals(stats.invalidations, 1)
-  luaunit.assertEquals(stats.validate_calls >= 2, true)
+  luaunit.assertEquals(stats.hits, 2)
+  luaunit.assertEquals(stats.misses, 0)
+  luaunit.assertEquals(stats.text_fallbacks, 1)
+  luaunit.assertEquals(validate_calls, 1)
+  luaunit.assertEquals(stats.validate_calls, 1)
+end
+
+function tests.test_missing_icon_key_falls_back_to_generic_rect()
+  local rect = report_icons.icon_rect("totally-missing-key")
+  local uv = report_icons.icon_uv("totally-missing-key")
+  luaunit.assertEquals(rect ~= nil, true)
+  luaunit.assertEquals(rect.key, "generic")
+  luaunit.assertEquals(uv ~= nil, true)
+  luaunit.assertEquals(uv.key, "generic")
 end
 
 return tests

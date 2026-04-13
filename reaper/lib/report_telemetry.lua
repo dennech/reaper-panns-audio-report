@@ -163,7 +163,7 @@ function M.finish_frame(telemetry)
   local should_log = total_ms >= 20 or telemetry.frame_index % telemetry.log_every_n_frames == 0
   if should_log then
     local line = string.format(
-      "frame=%d stage=%s total_ms=%.1f top=%s top_ms=%.1f tags=%s visible_tags=%s poll_ms=%s export_ms=%s icon_lookups=%s icon_draws=%s",
+      "frame=%d stage=%s total_ms=%.1f top=%s top_ms=%.1f tags=%s visible_tags=%s poll_ms=%s export_ms=%s icon_lookups=%s icon_draws=%s atlas_loads=%s text_fallbacks=%s",
       telemetry.frame_index,
       tostring(frame.stage or "unknown"),
       round_ms(total_ms),
@@ -174,7 +174,9 @@ function M.finish_frame(telemetry)
       tostring(round_ms(frame.phases.runtime_poll or 0)),
       tostring(round_ms(frame.phases.export_step or 0)),
       tostring(frame.counters.icon_lookups or 0),
-      tostring(frame.counters.icon_draws or 0)
+      tostring(frame.counters.icon_draws or 0),
+      tostring(frame.counters.icon_atlas_loads or 0),
+      tostring(frame.counters.icon_text_fallbacks or 0)
     )
     append_log(telemetry.log_path, line)
   end
@@ -232,13 +234,15 @@ function M.summary_lines(telemetry)
   )
 
   local line3 = string.format(
-    "Tags: total %s visible %s focus %s | Icons: lookup %s draw %s miss %s invalid %s",
+    "Tags: total %s visible %s focus %s | Icons: atlas %s lookup %s draw %s miss %s fallback %s invalid %s",
     tostring(counters.tags_total or 0),
     tostring(counters.visible_tags or 0),
     tostring(labels.focused_tag or "none"),
+    tostring(counters.icon_atlas_loads or 0),
     tostring(counters.icon_lookups or 0),
     tostring(counters.icon_draws or 0),
     tostring(counters.icon_misses or 0),
+    tostring(counters.icon_text_fallbacks or 0),
     tostring(counters.icon_invalidations or 0)
   )
 

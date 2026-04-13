@@ -66,7 +66,7 @@ local state = {
     telemetry = report_telemetry.new(paths.logs_dir, telemetry_session_id),
     icons = {
       loaded = false,
-      images = {},
+      image = nil,
       available = false,
     },
   },
@@ -164,20 +164,30 @@ local function ensure_icons()
   report_icons.ensure_loaded(ImGui, state.ui.icons)
 end
 
-local function image_for(icon_key)
+local function atlas_icon(icon_key)
   ensure_icons()
-  return report_icons.image(ImGui, state.ui.icons, icon_key)
+  local uv = report_icons.icon_uv(icon_key)
+  if not uv then
+    return nil, nil
+  end
+  local image = report_icons.image(ImGui, state.ui.icons, uv.key)
+  if not image then
+    return nil, nil
+  end
+  return image, uv
 end
 
 local function render_inline_image(icon_key, size)
-  local image = image_for(icon_key)
+  local image, uv = atlas_icon(icon_key)
   if not (image and ImGui.Image) then
+    report_icons.note_text_fallback(state.ui.icons)
     return false
   end
   report_icons.note_draw(state.ui.icons)
-  local ok = pcall(ImGui.Image, ctx, image, size, size)
+  local ok = pcall(ImGui.Image, ctx, image, size, size, uv.uv0_x, uv.uv0_y, uv.uv1_x, uv.uv1_y)
   if not ok then
     report_icons.invalidate(state.ui.icons, icon_key)
+    report_icons.note_text_fallback(state.ui.icons)
     return false
   end
   return true
@@ -187,12 +197,24 @@ local function draw_image_icon(draw_list, icon_key, x, y, size)
   if not ImGui.DrawList_AddImage then
     return false
   end
-  local image = image_for(icon_key)
-  if not image then
+  local image, uv = atlas_icon(icon_key)
+  if not (image and uv) then
     return false
   end
   report_icons.note_draw(state.ui.icons)
-  local ok = pcall(ImGui.DrawList_AddImage, draw_list, image, x, y, x + size, y + size)
+  local ok = pcall(
+    ImGui.DrawList_AddImage,
+    draw_list,
+    image,
+    x,
+    y,
+    x + size,
+    y + size,
+    uv.uv0_x,
+    uv.uv0_y,
+    uv.uv1_x,
+    uv.uv1_y
+  )
   if not ok then
     report_icons.invalidate(state.ui.icons, icon_key)
     return false
@@ -640,26 +662,72 @@ local function chip_metrics(prediction, variant)
   local text_w, text_h = ImGui.CalcTextSize(ctx, label)
   local pad_x = variant == "flow" and 10 or 12
   local pad_y = variant == "flow" and 6 or 8
+  local icon_size = variant == "flow" and 16 or 18
+  local icon_gap = 8
   local min_width = variant == "flow" and 0 or 140
-  local width = math.max(min_width, text_w + (pad_x * 2))
+  local icon_key = prediction.icon_key or report_presenter.label_icon_key(prediction.label, prediction.bucket)
+  local width = math.max(min_width, text_w + (pad_x * 2) + icon_size + icon_gap)
   local height = text_h + (pad_y * 2)
 
   return {
     label = label,
+    icon_key = icon_key,
+    icon_size = icon_size,
+    icon_gap = icon_gap,
+    pad_x = pad_x,
+    text_h = text_h,
     width = width,
     height = height,
   }
+end
+
+local function render_button_chip(metrics, kind)
+  ImGui.PushStyleColor(ctx, ImGui.Col_Button(), chip_palette(kind, false, false))
+  ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), chip_palette(kind, true, false))
+  ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(), chip_palette(kind, false, true))
+  local pressed = ImGui.Button(ctx, metrics.label, metrics.width, metrics.height)
+  ImGui.PopStyleColor(ctx, 3)
+  return pressed
 end
 
 local function render_tag_chip(group_id, index, prediction, kind, variant)
   local metrics = chip_metrics(prediction, variant)
 
   ImGui.PushID(ctx, string.format("%s-%d-%s", group_id, index, prediction.label))
-  ImGui.PushStyleColor(ctx, ImGui.Col_Button(), chip_palette(kind, false, false))
-  ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), chip_palette(kind, true, false))
-  ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(), chip_palette(kind, false, true))
-  local pressed = ImGui.Button(ctx, metrics.label, metrics.width, metrics.height)
-  ImGui.PopStyleColor(ctx, 3)
+  local can_draw_custom = ImGui.InvisibleButton
+    and ImGui.GetCursorScreenPos
+    and ImGui.GetWindowDrawList
+    and ImGui.DrawList_AddRectFilled
+    and ImGui.DrawList_AddTextEx
+    and ImGui.IsItemHovered
+    and ImGui.IsItemActive
+  local pressed = false
+
+  if not can_draw_custom then
+    pressed = render_button_chip(metrics, kind)
+  else
+    local cursor_x, cursor_y = ImGui.GetCursorScreenPos(ctx)
+    pressed = ImGui.InvisibleButton(ctx, "chip", metrics.width, metrics.height)
+    local hovered = ImGui.IsItemHovered(ctx)
+    local active = ImGui.IsItemActive(ctx)
+    local draw_list = ImGui.GetWindowDrawList(ctx)
+    local rect_max_x = cursor_x + metrics.width
+    local rect_max_y = cursor_y + metrics.height
+    local rounding = metrics.height * 0.5
+    local text_x = cursor_x + metrics.pad_x
+    local text_y = cursor_y + ((metrics.height - metrics.text_h) * 0.5)
+    local text_clip_max_x = rect_max_x - metrics.pad_x - metrics.icon_size - metrics.icon_gap
+
+    ImGui.DrawList_AddRectFilled(draw_list, cursor_x, cursor_y, rect_max_x, rect_max_y, chip_palette(kind, hovered, active), rounding)
+    ImGui.DrawList_AddTextEx(draw_list, nil, 0, text_x, text_y, THEME.text, metrics.label, 0.0, text_x, cursor_y, text_clip_max_x, rect_max_y)
+
+    local icon_x = rect_max_x - metrics.pad_x - metrics.icon_size
+    local icon_y = cursor_y + ((metrics.height - metrics.icon_size) * 0.5)
+    if not draw_image_icon(draw_list, metrics.icon_key, icon_x, icon_y, metrics.icon_size) then
+      report_icons.note_text_fallback(state.ui.icons)
+    end
+  end
+
   ImGui.PopID(ctx)
   return pressed, metrics
 end
@@ -940,7 +1008,8 @@ local function loop()
     telemetry_counter("icon_draws", icon_stats.draw_calls or 0)
     telemetry_counter("icon_misses", icon_stats.misses or 0)
     telemetry_counter("icon_invalidations", icon_stats.invalidations or 0)
-    telemetry_counter("icon_creates", icon_stats.create_calls or 0)
+    telemetry_counter("icon_atlas_loads", icon_stats.atlas_loads or 0)
+    telemetry_counter("icon_text_fallbacks", icon_stats.text_fallbacks or 0)
     telemetry_counter("icon_validates", icon_stats.validate_calls or 0)
     report_telemetry.finish_frame(state.ui.telemetry)
     if pushed_base_font then
