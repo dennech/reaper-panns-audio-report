@@ -177,11 +177,7 @@ local function render_inline_image(icon_key, size)
   report_icons.note_draw(state.ui.icons)
   local ok = pcall(ImGui.Image, ctx, image, size, size)
   if not ok then
-    if state.ui.icons.images then
-      state.ui.icons.images[icon_key] = nil
-    end
-    state.ui.icons.available = false
-    state.ui.icons.loaded = false
+    report_icons.invalidate(state.ui.icons, icon_key)
     return false
   end
   return true
@@ -198,11 +194,7 @@ local function draw_image_icon(draw_list, icon_key, x, y, size)
   report_icons.note_draw(state.ui.icons)
   local ok = pcall(ImGui.DrawList_AddImage, draw_list, image, x, y, x + size, y + size)
   if not ok then
-    if state.ui.icons.images then
-      state.ui.icons.images[icon_key] = nil
-    end
-    state.ui.icons.available = false
-    state.ui.icons.loaded = false
+    report_icons.invalidate(state.ui.icons, icon_key)
     return false
   end
   return true
@@ -645,23 +637,15 @@ end
 
 local function chip_metrics(prediction, variant)
   local label = report_presenter.decorate_chip_label(prediction.label, prediction.score)
-  local icon_key = report_presenter.label_icon_key(prediction.label, prediction.bucket)
   local text_w, text_h = ImGui.CalcTextSize(ctx, label)
-  local icon_size = image_for(icon_key) and (variant == "flow" and 16 or 18) or 0
   local pad_x = variant == "flow" and 10 or 12
   local pad_y = variant == "flow" and 6 or 8
-  local gap = icon_size > 0 and (variant == "flow" and 6 or 8) or 0
   local min_width = variant == "flow" and 0 or 140
-  local width = math.max(min_width, text_w + (pad_x * 2) + icon_size + gap)
-  local height = math.max(text_h, icon_size) + (pad_y * 2)
+  local width = math.max(min_width, text_w + (pad_x * 2))
+  local height = text_h + (pad_y * 2)
 
   return {
     label = label,
-    icon_key = icon_key,
-    text_h = text_h,
-    icon_size = icon_size,
-    pad_x = pad_x,
-    pad_y = pad_y,
     width = width,
     height = height,
   }
@@ -671,23 +655,11 @@ local function render_tag_chip(group_id, index, prediction, kind, variant)
   local metrics = chip_metrics(prediction, variant)
 
   ImGui.PushID(ctx, string.format("%s-%d-%s", group_id, index, prediction.label))
-  local pressed = ImGui.InvisibleButton(ctx, "##chip", metrics.width, metrics.height)
-  local hovered = ImGui.IsItemHovered(ctx)
-  local active = ImGui.IsItemActive(ctx)
-  local min_x, min_y = ImGui.GetItemRectMin(ctx)
-  local max_x, max_y = ImGui.GetItemRectMax(ctx)
-  local draw_list = ImGui.GetWindowDrawList(ctx)
-  local bg = chip_palette(kind, hovered, active)
-
-  ImGui.DrawList_AddRectFilled(draw_list, min_x, min_y, max_x, max_y, bg, metrics.height / 2)
-  local text_x = min_x + metrics.pad_x
-  local text_y = min_y + math.max(0, (metrics.height - metrics.text_h) / 2)
-  ImGui.DrawList_AddText(draw_list, text_x, text_y, THEME.text, metrics.label)
-  if metrics.icon_size > 0 then
-    local icon_x = max_x - metrics.pad_x - metrics.icon_size
-    local icon_y = min_y + math.max(0, (metrics.height - metrics.icon_size) / 2)
-    draw_image_icon(draw_list, metrics.icon_key, icon_x, icon_y, metrics.icon_size)
-  end
+  ImGui.PushStyleColor(ctx, ImGui.Col_Button(), chip_palette(kind, false, false))
+  ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), chip_palette(kind, true, false))
+  ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(), chip_palette(kind, false, true))
+  local pressed = ImGui.Button(ctx, metrics.label, metrics.width, metrics.height)
+  ImGui.PopStyleColor(ctx, 3)
   ImGui.PopID(ctx)
   return pressed, metrics
 end

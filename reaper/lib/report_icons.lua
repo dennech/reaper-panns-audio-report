@@ -96,6 +96,18 @@ function M.note_draw(cache)
   bump(cache, "draw_calls", 1)
 end
 
+function M.invalidate(cache, icon_key)
+  if not (cache and cache.images) then
+    return
+  end
+  if icon_key and cache.images[icon_key] ~= nil then
+    bump(cache, "invalidations", 1)
+  end
+  cache.images[icon_key] = nil
+  cache.available = false
+  cache.loaded = false
+end
+
 function M.is_valid_image(ImGui, image, cache)
   bump(cache, "validate_calls", 1)
   if not image then
@@ -146,19 +158,11 @@ end
 function M.image(ImGui, cache, icon_key)
   bump(cache, "image_calls", 1)
   local image = cache and cache.images and cache.images[icon_key] or nil
-  if M.is_valid_image(ImGui, image, cache) then
+  if image ~= nil then
     bump(cache, "hits", 1)
     return image
   end
-  if cache and cache.images then
-    bump(cache, "misses", 1)
-    if image ~= nil then
-      bump(cache, "invalidations", 1)
-    end
-    cache.images[icon_key] = nil
-    cache.available = false
-    cache.loaded = false
-  end
+  bump(cache, "misses", 1)
   return nil
 end
 
