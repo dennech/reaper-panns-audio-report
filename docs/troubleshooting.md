@@ -1,76 +1,68 @@
 # Troubleshooting
 
-## The script says ReaImGui is missing
+## ReaImGui is missing
 
-- First confirm that `Extensions -> ReaPack -> Browse Packages...` exists in REAPER.
-- If it does not, install ReaPack first and restart REAPER.
-- Then open ReaPack inside REAPER.
+- Open `Extensions -> ReaPack -> Browse Packages...`.
 - Install `ReaImGui: ReaScript binding for Dear ImGui`.
 - Restart REAPER.
+- Run `REAPER Audio Tag: Setup` again.
 
-## The script asks to run bootstrap
+## `REAPER Audio Tag: Setup` is missing from the Actions list
 
-- Make sure you are running the script from an unpacked GitHub release ZIP or from a development checkout.
-- Run `scripts/bootstrap.command`.
-- Confirm that `config.json` exists in the REAPER user data directory.
-- This step also downloads and verifies the PANNs checkpoint automatically.
-- Do not point the script at a system Python manually; it expects the managed runtime under `Data/reaper-panns-item-report/runtime/venv`.
-- For development-only editable installs, run `scripts/bootstrap_runtime.sh --dev`.
+- If you installed through ReaPack, make sure the `REAPER Audio Tag` package is installed.
+- If you used the manual installer ZIP, run `Install.command` again.
+- Refresh or reopen the Actions list.
+- If needed, load `Scripts/reaper/REAPER Audio Tag - Setup.lua` manually.
 
-## Bootstrap says `python3.11 was not found`
+## Setup fails to download the bundled runtime
 
-- Install Python `3.11` first.
-- Recommended macOS options:
-  - install from the official [Python macOS downloads page](https://www.python.org/downloads/mac-osx/)
-  - or install with Homebrew: `brew install python@3.11`
-- Open a new Terminal window and run `python3.11 --version`.
-- If that command still fails after a Homebrew install, load your shell environment and try again before rerunning `scripts/bootstrap.command`.
+- Check your internet connection.
+- Open the [GitHub Releases page](https://github.com/dennech/reaper-audio-tag/releases/latest) and confirm the release assets are available.
+- Run `REAPER Audio Tag: Setup` again.
+- If the release asset was partially downloaded, delete `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/setup` and rerun Setup.
+
+## Setup reports a checksum mismatch
+
+- Delete `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/setup`.
+- Run `REAPER Audio Tag: Setup` again.
+- If the mismatch persists, check whether a proxy, mirror, or antivirus tool is rewriting downloaded archives.
+
+## The report says Setup must be run first
+
+- Run `REAPER Audio Tag: Setup`.
+- Confirm that `config.json` exists in `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/`.
+- Confirm that the bundled runtime exists under `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime`.
 
 ## The runtime falls back to CPU
 
-- On Apple Silicon, this is expected if `MPS` is unavailable or unstable.
+- On Apple Silicon, this is expected when `MPS` is unavailable or unstable.
 - The runtime intentionally prefers a safe fallback over a crash.
-
-## The model download fails
-
-- Check your internet connection.
-- Confirm that you are using the unpacked project folder and not launching the Lua file from a temporary preview location.
-- Delete the partially downloaded checkpoint from `.local-models/` first, or from the REAPER fallback model directory if bootstrap had to use the fallback path.
-- Run `scripts/bootstrap.command` again.
 
 ## The selected item is rejected
 
 - Make sure exactly one item is selected.
 - Make sure the active take is audio, not MIDI.
-- If you already have a report open, keep the window open, select the new item, and click `Another`.
+- If a report window is already open, keep it open, select the next item, and click `Another`.
 
 ## REAPER becomes sluggish when the report opens
 
 - Make sure you are on the latest version of the script and rerun the action.
-- The report now prepares exported audio incrementally. You should briefly see a `Preparing audio...` stage before runtime inference starts.
-- If responsiveness still drops, capture the current runtime or export log and note whether the slowdown happens during `Preparing audio...`, during `Listening...`, or only after the final report appears.
-- The temporary on-screen diagnostics panel was removed once the atlas-based icon path stabilized, so current troubleshooting relies on the regular logs instead of extra buttons in the report window.
+- The report now prepares export audio incrementally before runtime inference starts.
+- If responsiveness still drops, note whether the slowdown happens during `Preparing audio...`, during `Listening...`, or only after the final report appears.
 
 ## The compact view does not show the colorful icons
 
 - The current build uses bundled Noto Emoji PNG assets instead of system emoji.
-- If the compact chips show text without icons, the image decode/render path is unavailable in that REAPER session.
+- If the compact chips show text without icons, the image decode or render path is unavailable in that REAPER session.
 - Analysis quality is unaffected; this is only a presentation fallback.
-- Restarting the script is usually enough to restore the image path if the session was in a bad UI state.
 
-## I want to inspect export diagnostics without running the model
+## I want export diagnostics without running the model
 
 - Run `reaper/REAPER Audio Tag - Debug Export.lua`.
 - It exports the selected take range, writes a diagnostics log, and stops before the Python runtime step.
 
-## I am worried about temporary files
+## I am a developer and still want the old source-checkout bootstrap flow
 
-- The script only creates temporary WAVs, job files, and logs inside the REAPER app data directory.
-- Those temporary artifacts are cleaned up automatically after completed runs, retries, `Another`, and window close.
-- Original source audio files and project media are never deleted.
-
-## The tags feel too generic
-
-- The current runtime does clip-level tagging only.
-- Audio is downmixed to mono and resampled to `32 kHz` before inference.
-- The report is best used as a fast cueing tool, not as a precise event detector.
+- Use `scripts/bootstrap.command`.
+- `bootstrap.command` is now a development and recovery path only.
+- Public installs should use ReaPack or the manual installer ZIP plus `REAPER Audio Tag: Setup`.

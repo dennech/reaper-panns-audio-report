@@ -25,6 +25,15 @@ jobs:
         run: |
           brew install lua
 
+      - name: Set up ReaPack index tooling
+        run: |
+          gem install reapack-index -v 1.2.6 --user-install
+          echo "$HOME/.gem/ruby/$(ruby -e 'print RUBY_VERSION[%r{^\d+\.\d+}]')/bin" >> "$GITHUB_PATH"
+
+      - name: Validate ReaPack metadata
+        run: |
+          bash scripts/generate_reapack_index.sh --check
+
       - name: Run Python tests
         run: |
           python3 tests/scripts/run_python_tests.py --scope python

@@ -1,76 +1,68 @@
 # Решение проблем
 
-## Скрипт пишет, что не найден ReaImGui
+## Не установлен ReaImGui
 
-- Сначала проверь, есть ли в REAPER меню `Extensions -> ReaPack -> Browse Packages...`.
-- Если меню нет, сначала установи ReaPack и перезапусти REAPER.
-- Затем открой ReaPack внутри REAPER.
+- Открой `Extensions -> ReaPack -> Browse Packages...`.
 - Установи `ReaImGui: ReaScript binding for Dear ImGui`.
 - Перезапусти REAPER.
+- Снова запусти `REAPER Audio Tag: Setup`.
 
-## Скрипт просит запустить bootstrap
+## В Actions list нет `REAPER Audio Tag: Setup`
 
-- Убедись, что ты запускаешь скрипт из распакованного GitHub ZIP или из developer checkout.
-- Запусти `scripts/bootstrap.command`.
-- Проверь, что `config.json` появился в REAPER user data directory.
-- Этот шаг автоматически скачивает и проверяет checkpoint модели PANNs.
-- Не подсовывай системный Python вручную: скрипт ожидает управляемый runtime в `Data/reaper-panns-item-report/runtime/venv`.
-- Для development-only editable install используй `scripts/bootstrap_runtime.sh --dev`.
+- Если ставил через ReaPack, проверь, что установлен пакет `REAPER Audio Tag`.
+- Если использовал manual installer ZIP, снова запусти `Install.command`.
+- Обнови или заново открой Actions list.
+- Если нужно, вручную загрузи `Scripts/reaper/REAPER Audio Tag - Setup.lua`.
 
-## Bootstrap пишет `python3.11 was not found`
+## Setup не может скачать bundled runtime
 
-- Сначала установи Python `3.11`.
-- Рекомендуемые варианты на macOS:
-  - установить его с официальной страницы [Python macOS downloads](https://www.python.org/downloads/mac-osx/)
-  - или через Homebrew: `brew install python@3.11`
-- Открой новое окно Terminal и выполни `python3.11 --version`.
-- Если после установки через Homebrew команда всё ещё не находится, обнови shell environment и только потом снова запускай `scripts/bootstrap.command`.
+- Проверь интернет.
+- Открой страницу [GitHub Releases](https://github.com/dennech/reaper-audio-tag/releases/latest) и убедись, что release assets доступны.
+- Снова запусти `REAPER Audio Tag: Setup`.
+- Если release asset скачался частично, удали `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/setup` и снова запусти Setup.
+
+## Setup пишет про checksum mismatch
+
+- Удали `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/setup`.
+- Снова запусти `REAPER Audio Tag: Setup`.
+- Если mismatch остаётся, проверь, не переписывает ли скачанные архивы прокси, mirror или antivirus tool.
+
+## Отчёт пишет, что сначала нужно запустить Setup
+
+- Запусти `REAPER Audio Tag: Setup`.
+- Проверь, что `config.json` существует в `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/`.
+- Проверь, что bundled runtime существует в `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime`.
 
 ## Runtime ушёл в CPU fallback
 
 - На Apple Silicon это нормально, если `MPS` недоступен или работает нестабильно.
-- Runtime специально выбирает безопасный fallback вместо крэша.
-
-## Не скачивается модель
-
-- Проверь интернет.
-- Убедись, что проект распакован в обычную папку, а Lua action не запускается из временной preview-локации.
-- Сначала удали частично скачанный checkpoint из `.local-models/`, а если bootstrap работал через fallback — из REAPER model directory.
-- Снова запусти `scripts/bootstrap.command`.
+- Runtime специально предпочитает безопасный fallback вместо крэша.
 
 ## Скрипт не принимает выбранный item
 
 - Проверь, что выбран ровно один item.
 - Проверь, что активный take — аудио, а не MIDI.
-- Если отчёт уже открыт, не закрывай окно: выбери новый item и нажми `Another`.
+- Если окно отчёта уже открыто, не закрывай его: выбери следующий item и нажми `Another`.
 
 ## REAPER начинает тормозить при открытии отчёта
 
 - Убедись, что у тебя последняя версия скрипта, и запусти action ещё раз.
-- Теперь export готовится пошагово, поэтому перед запуском runtime должен кратко появляться этап `Preparing audio...`.
-- Если тормоза остаются, сохрани текущий runtime или export log и отметь, просадка начинается на `Preparing audio...`, уже на `Listening...` или только после появления готового отчёта.
-- Временная on-screen диагностика была убрана после стабилизации atlas-based icon path, поэтому теперь для разборов используются обычные логи, а не дополнительные кнопки в окне отчёта.
+- Теперь export готовится пошагово до запуска runtime inference.
+- Если просадка остаётся, отметь, начинается ли она на `Preparing audio...`, на `Listening...` или только после появления готового отчёта.
 
 ## В compact view не видны цветные иконки
 
 - В текущей версии используются bundled Noto Emoji PNG assets, а не системные emoji.
-- Если в чипах виден только текст без иконок, значит image decode/render path в этой сессии REAPER недоступен.
+- Если в чипах виден только текст без иконок, значит image decode или render path в этой сессии REAPER недоступен.
 - На качество анализа это не влияет: это только presentation fallback.
-- Обычно достаточно заново запустить скрипт, если UI-сессия оказалась в плохом состоянии.
 
-## Хочу посмотреть export-диагностику без запуска модели
+## Хочу получить export diagnostics без запуска модели
 
 - Запусти `reaper/REAPER Audio Tag - Debug Export.lua`.
 - Он экспортирует выбранный take range, пишет diagnostics log и останавливается до шага Python runtime.
 
-## Боюсь, что временные файлы захламляют систему
+## Я разработчик и хочу сохранить старый source-checkout bootstrap flow
 
-- Скрипт создаёт только временные WAV, job files и логи внутри REAPER app data directory.
-- Эти временные артефакты автоматически убираются после завершённого run, `Retry`, `Another` и закрытия окна.
-- Исходные source audio files и project media не удаляются.
-
-## Теги кажутся слишком общими
-
-- Текущий runtime делает только clip-level tagging.
-- Перед инференсом аудио сводится в mono и ресемплится в `32 kHz`.
-- Этот отчёт лучше использовать как быстрый cueing-инструмент, а не как точный event detector.
+- Используй `scripts/bootstrap.command`.
+- `bootstrap.command` теперь нужен только для development и recovery.
+- Публичная установка должна идти через ReaPack или manual installer ZIP, а затем через `REAPER Audio Tag: Setup`.

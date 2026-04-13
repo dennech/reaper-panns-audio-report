@@ -1,6 +1,8 @@
 # Runtime Installation Notes
 
-The recommended user-facing flow is the repository root bootstrap:
+The public user-facing flow now goes through `REAPER Audio Tag: Setup`, which installs the bundled runtime from the matching GitHub release.
+
+For source checkouts and development work, keep using the repository root bootstrap:
 
 ```bash
 ./scripts/bootstrap.command

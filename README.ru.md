@@ -1,6 +1,6 @@
 # REAPER Audio Tag
 
-`REAPER Audio Tag` — это action для REAPER для быстрого clip-level анализа аудио. Он экспортирует текущий выбранный аудио-айтем, сводит его в mono, ресемплит в `32 kHz`, запускает локальный `PANNs Cnn14` через управляемый Python runtime и показывает компактный отчёт прямо в DAW: ключевые находки, top detected tags, backend status и подробный режим.
+`REAPER Audio Tag` — это action для REAPER для быстрого clip-level анализа аудио. Он экспортирует текущий выбранный аудио-айтем, сводит его в mono, ресемплит в `32 kHz`, запускает локальный `PANNs Cnn14` через bundled Python runtime и показывает компактный отчёт прямо в DAW: ключевые находки, top detected tags, backend status и подробный режим.
 
 v1 намеренно ограничен: сначала macOS, только один выбранный аудио-айтем за запуск и только `clipwise audio tagging`. Это практичный инструмент для быстрых spot-check проверок, а не timeline/event detector.
 
@@ -32,33 +32,38 @@ _Актуальный вид окна REAPER Audio Tag на macOS с wrapping-п
 ## Минимальные требования
 
 - REAPER `7.x`
+- `ReaPack`
 - установленный `ReaImGui`
 - macOS Apple Silicon или Intel Mac
-- Python `3.11`
-- свободное место под окружение runtime и checkpoint модели
+- свободное место под bundled runtime и checkpoint модели
 
 ## Быстрый старт
 
 1. Установи REAPER `7.x`.
 2. Если `ReaPack` не установлен, скачай его с [reapack.com](https://reapack.com/), положи macOS-сборку в папку `UserPlugins` у REAPER и перезапусти REAPER.
-3. Через ReaPack установи `ReaImGui: ReaScript binding for Dear ImGui`, затем перезапусти REAPER.
-4. Установи Python `3.11`. На macOS проще всего взять его с официальной страницы [Python macOS downloads](https://www.python.org/downloads/mac-osx/) или поставить через `brew install python@3.11`, затем проверить в Terminal командой `python3.11 --version`.
-5. Скачай актуальный ZIP со страницы [GitHub Releases](https://github.com/dennech/reaper-audio-tag/releases/latest).
-6. Распакуй архив в любую папку на Mac.
-7. Один раз запусти [`scripts/bootstrap.command`](scripts/bootstrap.command).
-8. В REAPER добавь [`reaper/REAPER Audio Tag.lua`](reaper/REAPER%20Audio%20Tag.lua) в Actions list.
-9. Выбери ровно один аудио-item.
-10. Запусти `REAPER Audio Tag`.
+3. В REAPER открой `Extensions -> ReaPack -> Import repositories...` и добавь:
+   `https://raw.githubusercontent.com/dennech/reaper-audio-tag/main/index.xml`
+4. В ReaPack установи пакет `REAPER Audio Tag`.
+5. Если `ReaImGui` ещё не установлен, поставь `ReaImGui: ReaScript binding for Dear ImGui`, затем перезапусти REAPER.
+6. В Actions list найди `REAPER Audio Tag: Setup` и запусти этот action один раз.
+7. Дождись, пока Setup скачает и установит bundled runtime.
+8. Выбери ровно один аудио-item.
+9. Запусти `REAPER Audio Tag`.
 
-`git clone` нужен только для разработки. Обычная пользовательская установка должна воспроизводиться прямо из скачанного ZIP.
+Что делает `REAPER Audio Tag: Setup`:
 
-Что делает `bootstrap.command`:
+- скачивает version-pinned bundled runtime из соответствующего GitHub release
+- проверяет checksum release bundle перед установкой
+- устанавливает bundled Python runtime, packaged dependencies и `Cnn14_mAP=0.431.pth`
+- записывает REAPER-side runtime config в `Data/reaper-panns-item-report/config.json`
 
-- создаёт управляемое Python-окружение в REAPER app data directory
-- устанавливает packaged runtime, который использует скрипт
-- автоматически скачивает `Cnn14_mAP=0.431.pth`
-- проверяет checkpoint перед активацией
-- записывает REAPER-side runtime config
+Для обычной пользовательской установки не нужны `git clone`, python.org и отдельная ручная установка модели PANNs.
+
+Ручной fallback:
+
+- скачай architecture-specific installer ZIP со страницы [GitHub Releases](https://github.com/dennech/reaper-audio-tag/releases/latest)
+- запусти `Install.command`
+- затем внутри REAPER запусти `REAPER Audio Tag: Setup`
 
 Подробная установка:
 
@@ -81,18 +86,18 @@ _Актуальный вид окна REAPER Audio Tag на macOS с wrapping-п
 - [`reaper/`](reaper): Lua action, UI, экспорт аудио, bridge к runtime
 - [`runtime/`](runtime): Python runtime package, model adapter, bootstrap logic
 - [`tests/`](tests): покрытие Python, Lua и integration
-- [`scripts/`](scripts): bootstrap helpers
+- [`scripts/`](scripts): bootstrap, packaging и release helpers
 
 ## Безопасность и приватность
 
-- Runtime использует только управляемое virtualenv в REAPER data directory и не доверяет внешнему пути к Python из `config.json`.
-- Checkpoint проверяется перед использованием и хранится вне Git в пользовательской папке REAPER.
+- Runtime использует только управляемое bundled-окружение в REAPER data directory и не доверяет внешнему пути к Python из `config.json`.
+- Checkpoint проверяется перед использованием и хранится вне Git. В публичной установке он лежит в REAPER data directory. В developer checkout по-прежнему может использоваться `repo_root/.local-models/`.
 - История репозитория была очищена от случайно закоммиченных локальных путей. Логин владельца GitHub остаётся частью URL репозитория, потому что проект остаётся под текущим аккаунтом.
 
 ## Примечания
 
 - В проект vendored нужная часть официального PANNs-кода для загрузки `Cnn14`.
-- Большой checkpoint хранится только локально и не попадает в Git. В обычном writable checkout bootstrap теперь предпочитает `.local-models/`, а REAPER data dir остаётся fallback-вариантом.
+- Большой checkpoint хранится только локально и не попадает в Git. В публичной установке он живёт в REAPER data directory. В обычном developer checkout по-прежнему предпочитается `.local-models/`, а REAPER data dir остаётся fallback-вариантом.
 - В первой версии приоритет у надёжности и fallback-поведения, а не у максимального ускорения любой ценой.
 - Отчёт — это clip-level tagging-подсказка, а не event detection или timeline localization.
 - Подготовка export теперь идёт пошагово на Lua-стороне до запуска Python runtime, поэтому окно остаётся отзывчивым даже на длинных выбранных item.
@@ -103,3 +108,4 @@ _Актуальный вид окна REAPER Audio Tag на macOS с wrapping-п
 - Проект вендорит именно Noto Emoji image resources, а не font files. Для bundled PNG-ассетов сохраняй Apache 2.0 notice в `reaper/assets/noto-emoji/LICENSE-APACHE-2.0.txt` и attribution note в `THIRD_PARTY_NOTICES.md`.
 - Если image path в конкретной сессии недоступен, UI аккуратно деградирует в plain text без декоративных иконок. На анализ это не влияет.
 - Для диагностики export без запуска модели используй `reaper/REAPER Audio Tag - Debug Export.lua`.
+- `scripts/bootstrap.command` теперь остаётся developer/recovery-путём для source checkout, а не основным публичным install flow.

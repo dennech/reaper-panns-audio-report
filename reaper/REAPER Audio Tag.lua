@@ -1,3 +1,15 @@
+-- @description REAPER Audio Tag
+-- @version 0.2.0
+-- @author Project contributors
+-- @link https://github.com/dennech/reaper-audio-tag
+-- @screenshot https://raw.githubusercontent.com/dennech/reaper-audio-tag/main/docs/images/reaper-audio-tag-hero.png
+-- @provides
+--   [main] REAPER Audio Tag - Setup.lua
+--   [nomain] REAPER Audio Tag - Debug Export.lua
+--   [nomain] PANNs Item Report.lua
+--   [nomain] PANNs Item Report - Debug Export.lua
+--   [nomain] lib/*.lua
+
 local _, script_path = reaper.get_action_context()
 local script_dir = script_path:match("^(.*[\\/])") or "."
 package.path = table.concat({
@@ -427,7 +439,7 @@ end
 local function ensure_started()
   if not runtime_client.runtime_ready(paths) then
     state.screen = "setup"
-    state.last_error = "Runtime is not bootstrapped yet."
+    state.last_error = "Bundled runtime is not set up yet."
     return
   end
   if state.screen == "boot" then
@@ -456,12 +468,14 @@ local function render_setup()
     ImGui.TextColored(ctx, badge_color("warning"), tostring(state.last_error))
   end
   ImGui.Spacing(ctx)
-  if ImGui.Button(ctx, "Bootstrap") then
-    local ok, err = runtime_client.open_bootstrap(paths)
+  if ImGui.Button(ctx, "Setup") then
+    local ok, err = runtime_client.run_setup(paths, {
+      interactive = true,
+    })
     if not ok then
       state.last_error = err
     else
-      state.last_error = "Terminal is open. Come back and hit Retry."
+      state.last_error = "Setup finished. Hit Retry if the report does not start automatically."
     end
   end
   ImGui.SameLine(ctx)
@@ -890,8 +904,15 @@ local function render_error()
     return
   end
   ImGui.SameLine(ctx)
-  if ImGui.Button(ctx, "Bootstrap") then
-    runtime_client.open_bootstrap(paths)
+  if ImGui.Button(ctx, "Setup") then
+    local ok, err = runtime_client.run_setup(paths, {
+      interactive = true,
+    })
+    if not ok then
+      state.last_error = err
+    else
+      state.last_error = "Setup finished. Retry the analysis."
+    end
   end
 end
 

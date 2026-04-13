@@ -1,5 +1,6 @@
 local json = require("json")
 local path_utils = require("path_utils")
+local setup_runtime = require("setup_runtime")
 
 local M = {}
 
@@ -28,7 +29,7 @@ end
 
 function M.load_config(paths)
   if not path_utils.exists(paths.config_path) then
-    return nil, "Runtime config was not found. Run bootstrap.command first."
+    return nil, "Runtime config was not found. Run REAPER Audio Tag: Setup first."
   end
   return read_json(paths.config_path)
 end
@@ -52,6 +53,10 @@ function M.open_bootstrap(paths)
   end
   reaper.ExecProcess(command, -2)
   return true
+end
+
+function M.run_setup(paths, options, deps)
+  return setup_runtime.run(paths, options, deps)
 end
 
 local function write_request(path, payload)
@@ -117,7 +122,7 @@ function M.start_job(paths, item_payload, options)
 
   local python_path = paths.python_path
   if not path_utils.exists(python_path) then
-    return nil, "Configured Python runtime was not found. Run bootstrap.command again."
+    return nil, "Configured bundled runtime was not found. Run REAPER Audio Tag: Setup again."
   end
 
   path_utils.ensure_dir(paths.jobs_dir)

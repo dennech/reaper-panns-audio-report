@@ -12,6 +12,22 @@ local function shell_read(command)
   return line
 end
 
+local function shell_all(command)
+  local handle = io.popen(command)
+  if not handle then
+    return nil, 1
+  end
+  local data = handle:read("*a")
+  local ok, _, code = handle:close()
+  if ok == nil then
+    ok = false
+  end
+  if ok then
+    return data, 0
+  end
+  return data, tonumber(code) or 1
+end
+
 local function shell_lines(command)
   local handle = io.popen(command)
   if not handle then
@@ -104,6 +120,32 @@ function M.write_file(path, data)
   return true
 end
 
+function M.capture_command(command)
+  local output, code = shell_all(command)
+  if output == nil then
+    return nil, code
+  end
+  output = output:gsub("%s+$", "")
+  if code ~= 0 then
+    return nil, code, output
+  end
+  return output
+end
+
+function M.run_command(command)
+  local ok, why, code = os.execute(command)
+  if type(ok) == "number" then
+    return ok == 0, ok
+  end
+  if type(ok) == "boolean" then
+    if why == "exit" or why == "signal" then
+      return ok and tonumber(code) == 0, tonumber(code) or 1
+    end
+    return ok, ok and 0 or 1
+  end
+  return false, 1
+end
+
 function M.ensure_dir(path)
   if reaper and reaper.RecursiveCreateDirectory then
     reaper.RecursiveCreateDirectory(path, 0)
@@ -183,6 +225,51 @@ function M.remove_tree(path)
     os.remove(child_file)
   end
   return os.remove(path)
+end
+
+function M.remove_path(path)
+  if M.directory_exists(path) then
+    return M.remove_tree(path)
+  end
+  if M.exists(path) then
+    return os.remove(path)
+  end
+  return false
+end
+
+function M.move_path(source, destination)
+  local ok = M.run_command("mv " .. M.sh_quote(source) .. " " .. M.sh_quote(destination))
+  return ok
+end
+
+function M.copy_file(source, destination)
+  local ok = M.run_command("cp " .. M.sh_quote(source) .. " " .. M.sh_quote(destination))
+  return ok
+end
+
+function M.mktemp_dir(prefix)
+  local template = (prefix or "/tmp/reaper-audio-tag") .. "-XXXXXX"
+  local dir = shell_read("mktemp -d " .. M.sh_quote(template) .. " 2>/dev/null")
+  if dir and dir ~= "" then
+    return dir
+  end
+
+  local fallback = (prefix or "/tmp/reaper-audio-tag") .. "-" .. tostring(os.time())
+  M.ensure_dir(fallback)
+  return fallback
+end
+
+function M.sha256(path)
+  local line = shell_read("shasum -a 256 " .. M.sh_quote(path) .. " 2>/dev/null")
+  if line and line ~= "" then
+    return line:match("^([0-9a-fA-F]+)")
+  end
+
+  line = shell_read("openssl dgst -sha256 " .. M.sh_quote(path) .. " 2>/dev/null")
+  if line and line ~= "" then
+    return line:match("= ([0-9a-fA-F]+)$")
+  end
+  return nil
 end
 
 function M.sh_quote(value)

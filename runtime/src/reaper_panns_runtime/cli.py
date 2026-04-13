@@ -72,9 +72,9 @@ def _analyze(args: argparse.Namespace) -> int:
     try:
         config = load_config(paths)
     except FileNotFoundError:
-        _log_line(log_file, "Runtime config is missing. bootstrap.command must be run first.")
+        _log_line(log_file, "Runtime config is missing. REAPER Audio Tag: Setup must be run first.")
         payload = error_response(
-            "Runtime is not configured yet. Run scripts/bootstrap.command first.",
+            "Runtime is not configured yet. Run REAPER Audio Tag: Setup first.",
             code="runtime_not_bootstrapped",
             backend="cpu",
             attempted_backends=backend_candidates(requested_backend),

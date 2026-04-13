@@ -1,3 +1,5 @@
+-- @noindex
+
 local _, script_path = reaper.get_action_context()
 local script_dir = script_path:match("^(.*[\\/])") or "."
 package.path = table.concat({

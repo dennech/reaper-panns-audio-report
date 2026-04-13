@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- Added a ReaPack-first distribution layer with repo-tracked `.reapack-index.conf`, generated `index.xml`, and ReaPack package metadata on the main Lua action.
+- Added a new public `REAPER Audio Tag: Setup` action that installs version-pinned bundled runtime releases into the REAPER data directory instead of sending normal users through `bootstrap.command`.
+- Added Lua setup/install orchestration with architecture detection, ReaImGui guidance, release-manifest lookup, checksum verification, staging, rollback, and idempotent reruns.
+- Added release automation scaffolding for macOS arm64 and x86_64 runtime bundles, architecture-specific manual installer ZIPs, and a combined release manifest with checksums.
+- Reworked the public install and troubleshooting docs so the recommended flow is now `ReaPack -> REAPER Audio Tag: Setup -> REAPER Audio Tag`, with `bootstrap.command` kept as a developer and recovery path.
+
 ## 0.1.0
 
 - Initialized the repository, bootstrap flow, Lua action, Python runtime, and bilingual docs.
@@ -24,3 +32,4 @@
 - Added a runtime-mocked Lua regression test that executes the legacy action wrappers and verifies they forward to the renamed script entrypoints on both POSIX and Windows-style paths.
 - Reworked the public install docs so normal users can install from a GitHub release ZIP without `git clone`, with explicit ReaPack/ReaImGui steps and a transparent explanation that `bootstrap.command` downloads and verifies the PANNs model automatically.
 - Clarified the install docs with explicit ReaPack placement instructions and concrete Python 3.11 installation guidance for macOS users.
+- Clarified that the current public distribution path is the GitHub release source ZIP, because there is not yet a separate slim installer bundle or packaged release asset.
