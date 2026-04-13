@@ -40,9 +40,9 @@ _Current REAPER Audio Tag report window on macOS with wrapped tag chips and emoj
 ## Quick Start
 
 1. Install REAPER `7.x`.
-2. Make sure `ReaPack` is available in REAPER.
+2. If `ReaPack` is missing, download it from [reapack.com](https://reapack.com/), put the macOS build into REAPER's `UserPlugins` folder, and restart REAPER.
 3. In ReaPack, install `ReaImGui: ReaScript binding for Dear ImGui`, then restart REAPER.
-4. Install Python `3.11`.
+4. Install Python `3.11`. Recommended on macOS: use the official [Python macOS downloads page](https://www.python.org/downloads/mac-osx/) or `brew install python@3.11`, then confirm `python3.11 --version` works in Terminal.
 5. Download the latest ZIP from the [GitHub Releases page](https://github.com/dennech/reaper-audio-tag/releases/latest).
 6. Unpack it anywhere on your Mac.
 7. Run [`scripts/bootstrap.command`](scripts/bootstrap.command) once.

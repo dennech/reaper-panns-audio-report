@@ -23,3 +23,4 @@
 - Added a tracked README hero screenshot under `docs/images/` so the public repository landing pages show the current macOS report UI.
 - Added a runtime-mocked Lua regression test that executes the legacy action wrappers and verifies they forward to the renamed script entrypoints on both POSIX and Windows-style paths.
 - Reworked the public install docs so normal users can install from a GitHub release ZIP without `git clone`, with explicit ReaPack/ReaImGui steps and a transparent explanation that `bootstrap.command` downloads and verifies the PANNs model automatically.
+- Clarified the install docs with explicit ReaPack placement instructions and concrete Python 3.11 installation guidance for macOS users.

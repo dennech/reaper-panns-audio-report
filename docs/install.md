@@ -6,12 +6,21 @@
 
 1. Install REAPER `7.x`.
 2. Install Python `3.11`.
+3. Recommended macOS options:
+   - use the official [Python macOS downloads page](https://www.python.org/downloads/mac-osx/)
+   - or install with Homebrew: `brew install python@3.11`
+4. Open Terminal and confirm `python3.11 --version` works before continuing.
 
 ### 2. Install ReaPack and ReaImGui in REAPER
 
 1. Open REAPER.
 2. Check whether `Extensions -> ReaPack -> Browse Packages...` exists.
-3. If that menu is missing, install ReaPack first, restart REAPER, and come back to this step.
+3. If that menu is missing:
+   - open [reapack.com](https://reapack.com/)
+   - download the macOS build that matches your Mac
+   - in REAPER, open `Options -> Show REAPER resource path in Finder`
+   - place the downloaded ReaPack file into the `UserPlugins` folder there
+   - restart REAPER and come back to this step
 4. Open `Extensions -> ReaPack -> Browse Packages...`.
 5. Search for `ReaImGui: ReaScript binding for Dear ImGui`.
 6. Install it.

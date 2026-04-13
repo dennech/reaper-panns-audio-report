@@ -17,6 +17,15 @@
 - Do not point the script at a system Python manually; it expects the managed runtime under `Data/reaper-panns-item-report/runtime/venv`.
 - For development-only editable installs, run `scripts/bootstrap_runtime.sh --dev`.
 
+## Bootstrap says `python3.11 was not found`
+
+- Install Python `3.11` first.
+- Recommended macOS options:
+  - install from the official [Python macOS downloads page](https://www.python.org/downloads/mac-osx/)
+  - or install with Homebrew: `brew install python@3.11`
+- Open a new Terminal window and run `python3.11 --version`.
+- If that command still fails after a Homebrew install, load your shell environment and try again before rerunning `scripts/bootstrap.command`.
+
 ## The runtime falls back to CPU
 
 - On Apple Silicon, this is expected if `MPS` is unavailable or unstable.

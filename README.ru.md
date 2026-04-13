@@ -40,9 +40,9 @@ _Актуальный вид окна REAPER Audio Tag на macOS с wrapping-п
 ## Быстрый старт
 
 1. Установи REAPER `7.x`.
-2. Убедись, что в REAPER установлен `ReaPack`.
+2. Если `ReaPack` не установлен, скачай его с [reapack.com](https://reapack.com/), положи macOS-сборку в папку `UserPlugins` у REAPER и перезапусти REAPER.
 3. Через ReaPack установи `ReaImGui: ReaScript binding for Dear ImGui`, затем перезапусти REAPER.
-4. Установи Python `3.11`.
+4. Установи Python `3.11`. На macOS проще всего взять его с официальной страницы [Python macOS downloads](https://www.python.org/downloads/mac-osx/) или поставить через `brew install python@3.11`, затем проверить в Terminal командой `python3.11 --version`.
 5. Скачай актуальный ZIP со страницы [GitHub Releases](https://github.com/dennech/reaper-audio-tag/releases/latest).
 6. Распакуй архив в любую папку на Mac.
 7. Один раз запусти [`scripts/bootstrap.command`](scripts/bootstrap.command).
