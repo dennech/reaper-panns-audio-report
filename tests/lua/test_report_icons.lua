@@ -26,6 +26,8 @@ function tests.test_icon_catalog_is_noto_based()
   luaunit.assertEquals(names[3], "loading")
   luaunit.assertEquals(report_icons.upstream_repo(), "https://github.com/googlefonts/noto-emoji")
   luaunit.assertEquals(report_icons.upstream_commit(), "8998f5dd683424a73e2314a8c1f1e359c19e8742")
+  luaunit.assertEquals(report_icons.upstream_image_license(), "Apache-2.0")
+  luaunit.assertEquals(report_icons.upstream_font_license(), "OFL-1.1")
 end
 
 function tests.test_icon_png_data_decodes_png_headers()

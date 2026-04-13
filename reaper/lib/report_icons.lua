@@ -41,6 +41,14 @@ function M.upstream_commit()
   return icon_assets.UPSTREAM_COMMIT
 end
 
+function M.upstream_image_license()
+  return icon_assets.UPSTREAM_IMAGE_LICENSE
+end
+
+function M.upstream_font_license()
+  return icon_assets.UPSTREAM_FONT_LICENSE
+end
+
 function M.icon_names()
   local names = {}
   for _, name in ipairs(icon_assets.ORDER or {}) do

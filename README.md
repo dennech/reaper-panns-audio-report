@@ -80,5 +80,6 @@ Troubleshooting:
 - The script cleans up only its own temporary export WAVs, job files, and logs inside `Data/reaper-panns-item-report/{tmp,jobs,logs}`. It never deletes the original source audio or project media.
 - The compact report now uses bundled Noto Emoji PNG assets instead of system text emoji or custom sticker art, so tag chips stay consistent across REAPER/ReaImGui setups.
 - The vendored emoji source lives under `reaper/assets/noto-emoji/`, and `scripts/generate_report_emoji_assets.py` regenerates the self-contained Lua bundles when those assets change.
+- The project vendors Noto Emoji image resources, not the font files. For the bundled PNG assets, keep the Apache 2.0 notice under `reaper/assets/noto-emoji/LICENSE-APACHE-2.0.txt` and the attribution note in `THIRD_PARTY_NOTICES.md`.
 - If the image path is unavailable in a specific session, the UI falls back to plain text labels only. Analysis behavior is unchanged.
 - For export diagnostics without running the model, use `reaper/PANNs Item Report - Debug Export.lua`.
