@@ -40,6 +40,17 @@ def _set_private_file_permissions(path: Path) -> None:
     os.chmod(path, 0o600)
 
 
+def _set_private_dir_permissions(path: Path) -> None:
+    if os.name == "nt":
+        return
+    os.chmod(path, 0o700)
+
+
+def _ensure_private_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    _set_private_dir_permissions(path)
+
+
 def verify_model(path: Path, spec: ModelSpec) -> bool:
     if not path.is_file():
         return False
@@ -49,7 +60,7 @@ def verify_model(path: Path, spec: ModelSpec) -> bool:
 
 
 def download_model(target_dir: Path, spec: ModelSpec = CNN14_MODEL, force: bool = False) -> Path:
-    target_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_private_dir(target_dir)
     destination = target_dir / spec.filename
 
     if destination.exists() and verify_model(destination, spec) and not force:
@@ -66,6 +77,41 @@ def download_model(target_dir: Path, spec: ModelSpec = CNN14_MODEL, force: bool 
     if not verify_model(temp_path, spec):
         temp_path.unlink(missing_ok=True)
         raise RuntimeError("Downloaded model failed checksum verification.")
+
+    temp_path.replace(destination)
+    _set_private_file_permissions(destination)
+    return destination
+
+
+def copy_verified_model(
+    source_path: Path,
+    destination_path: Path,
+    spec: ModelSpec = CNN14_MODEL,
+    *,
+    force: bool = False,
+) -> Path:
+    source = Path(source_path).expanduser().resolve(strict=False)
+    destination = Path(destination_path).expanduser().resolve(strict=False)
+
+    if not verify_model(source, spec):
+        raise RuntimeError(f"Source model failed checksum verification: {source}")
+
+    _ensure_private_dir(destination.parent)
+
+    if destination.exists() and verify_model(destination, spec) and not force:
+        _set_private_file_permissions(destination)
+        return destination
+
+    if destination.exists():
+        destination.unlink()
+
+    temp_path = destination.with_suffix(destination.suffix + ".part")
+    temp_path.unlink(missing_ok=True)
+    shutil.copyfile(source, temp_path)
+
+    if not verify_model(temp_path, spec):
+        temp_path.unlink(missing_ok=True)
+        raise RuntimeError(f"Copied model failed checksum verification: {destination}")
 
     temp_path.replace(destination)
     _set_private_file_permissions(destination)

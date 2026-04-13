@@ -74,6 +74,42 @@ def default_paths() -> RuntimePaths:
     )
 
 
+def normalize_path(path: Path | str) -> Path:
+    return Path(path).expanduser().resolve(strict=False)
+
+
+def is_subpath(path: Path | str, root: Path | str) -> bool:
+    try:
+        normalize_path(path).relative_to(normalize_path(root))
+        return True
+    except ValueError:
+        return False
+
+
+def project_models_dir(paths: RuntimePaths) -> Path:
+    return normalize_path(paths.repo_root / ".local-models")
+
+
+def project_models_dir_available(paths: RuntimePaths) -> bool:
+    repo = normalize_path(paths.repo_root)
+    if not repo.exists() or not repo.is_dir():
+        return False
+
+    override = os.environ.get("REAPER_PANNS_REPO_ROOT")
+    if not override:
+        expected_checkout_files = (
+            repo / "pyproject.toml",
+            repo / "scripts" / "bootstrap_runtime.sh",
+            repo / "reaper" / "PANNs Item Report.lua",
+        )
+        if not all(candidate.exists() for candidate in expected_checkout_files):
+            return False
+
+    target = project_models_dir(paths)
+    probe = target if target.exists() else repo
+    return os.access(probe, os.W_OK | os.X_OK)
+
+
 def ensure_directories(paths: RuntimePaths) -> None:
     for directory in (
         paths.data_dir,

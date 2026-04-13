@@ -23,14 +23,15 @@ If you pull a newer revision of the repository later, run `scripts/bootstrap.com
 ## Where the runtime stores data
 
 - Config: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/config.json`
-- Model: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/models`
+- Preferred model cache: `<repo>/.local-models`
+- Fallback model cache: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/models`
 - Jobs: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/jobs`
 - Export temp WAVs: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/tmp`
 - Export logs: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/logs`
 
 ## Notes
 
-- The repository itself stays light: the large model file is downloaded outside Git.
+- The repository itself stays light: the large model file is cached locally outside Git and `.local-models/` is ignored.
 - The script runs only the managed runtime inside `Data/reaper-panns-item-report/runtime/venv`.
 - Audio is downmixed to mono and resampled to `32 kHz` before tagging.
 - The report is clip-level tagging, not event detection.

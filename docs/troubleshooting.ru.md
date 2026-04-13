@@ -21,7 +21,7 @@
 ## Не скачивается модель
 
 - Проверь интернет.
-- Удали частично скачанный checkpoint из папки модели runtime.
+- Сначала удали частично скачанный checkpoint из `.local-models/`, а если bootstrap работал через fallback — из REAPER model directory.
 - Снова запусти `scripts/bootstrap.command`.
 
 ## Скрипт не принимает выбранный item

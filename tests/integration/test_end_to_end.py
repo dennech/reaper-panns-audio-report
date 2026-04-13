@@ -14,10 +14,12 @@ from reaper_panns_runtime.contract import SCHEMA_VERSION, validate_response
 def test_runtime_cli_fake_mode_and_lua_runner_work_together() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
+        repo_root = root / "repo"
+        repo_root.mkdir(parents=True, exist_ok=True)
         resource_dir = root / "REAPER"
         data_dir = resource_dir / "Data" / "reaper-panns-item-report"
         data_dir.mkdir(parents=True, exist_ok=True)
-        model_path = data_dir / "models" / "Cnn14_mAP=0.431.pth"
+        model_path = repo_root / ".local-models" / "Cnn14_mAP=0.431.pth"
         model_path.parent.mkdir(parents=True, exist_ok=True)
         model_path.write_bytes(b"placeholder")
         (data_dir / "config.json").write_text(
@@ -58,6 +60,7 @@ def test_runtime_cli_fake_mode_and_lua_runner_work_together() -> None:
                 **os.environ,
                 "PYTHONPATH": str(Path.cwd() / "runtime" / "src"),
                 "REAPER_RESOURCE_PATH": str(resource_dir),
+                "REAPER_PANNS_REPO_ROOT": str(repo_root),
                 "REAPER_PANNS_FAKE_MODEL": "1",
             },
         )

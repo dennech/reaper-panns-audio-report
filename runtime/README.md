@@ -20,6 +20,7 @@ This directory contains the Python runtime package used by the REAPER action.
 ## Notes
 
 - The runtime package lives under `runtime/src/reaper_panns_runtime`.
-- The large checkpoint is stored in the REAPER data directory, not inside the repository.
+- In a normal writable checkout, bootstrap prefers a repo-local cache under `.local-models/` for the large checkpoint and keeps it out of Git.
+- If the repo-local cache is unavailable, bootstrap falls back to the REAPER data directory model cache.
 - The fake model path exists to keep tests and contract validation lightweight.
 - `scripts/bootstrap_runtime.sh` installs a regular packaged runtime by default; use `--dev` for an editable development install.

@@ -15,3 +15,4 @@
 - Documented rerun workflow, export diagnostics, and temporary-file cleanup behavior in the English and Russian docs.
 - Replaced unreliable mixed-text emoji rendering and custom sticker art with bundled Noto Emoji image assets, added a reproducible asset generator, and kept a plain-text fallback when image handles are unavailable.
 - Clarified the Noto Emoji asset licensing split by adding Apache 2.0 text for the vendored PNG image resources and explicit third-party attribution notes for the bundled image pipeline.
+- Moved the preferred checkpoint cache to repo-local `.local-models/` in writable checkouts, kept `.gitignore` protection, and preserved REAPER data-dir fallback for non-writable or atypical environments.

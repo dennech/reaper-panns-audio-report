@@ -12,6 +12,7 @@ from types import ModuleType
 TEST_MODULES = {
     "python": [
         "tests.python.test_audio_fixtures",
+        "tests.python.test_bootstrap_model_paths",
         "tests.python.test_contracts",
         "tests.python.test_fake_cli",
         "tests.python.test_runtime_contract",

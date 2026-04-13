@@ -68,13 +68,13 @@ Troubleshooting:
 ## Security & Privacy
 
 - The runtime uses only the managed REAPER-side virtual environment and does not trust an external Python path from `config.json`.
-- The checkpoint is verified before use and is stored outside Git in the REAPER user data directory.
+- The checkpoint is verified before use and is stored outside Git. In a normal writable checkout, bootstrap prefers `repo_root/.local-models/`.
 - The repository history was sanitized to remove accidentally committed local paths. The GitHub owner login remains part of the repository URL because the project stays under the current account.
 
 ## Notes
 
 - The project vendors the official PANNs model code needed for `Cnn14` loading.
-- The large model checkpoint is downloaded into the user REAPER data directory and is not committed to Git.
+- The large model checkpoint is cached locally and is not committed to Git. In development checkouts it now prefers `.local-models/`, with a REAPER data-dir fallback for atypical environments.
 - The first release is intentionally conservative: reliability and fallback behavior are prioritized over maximum acceleration.
 - The report is clip-level tagging guidance, not event detection or timeline localization.
 - The script cleans up only its own temporary export WAVs, job files, and logs inside `Data/reaper-panns-item-report/{tmp,jobs,logs}`. It never deletes the original source audio or project media.

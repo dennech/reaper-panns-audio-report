@@ -18,6 +18,8 @@ from tests.python.audio_fixtures import generate_audio_fixtures
 def test_bootstrap_cli_writes_config_without_real_download() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         resource_dir = Path(temp_dir) / "REAPER"
+        repo_root = Path(temp_dir) / "repo"
+        repo_root.mkdir(parents=True)
         stdout = io.StringIO()
 
         def fake_download(target_dir, spec, force=False):  # noqa: ANN001 - test shim
@@ -26,7 +28,14 @@ def test_bootstrap_cli_writes_config_without_real_download() -> None:
             fake_model.write_bytes(b"fake-model")
             return fake_model
 
-        with patch.dict(os.environ, {"REAPER_RESOURCE_PATH": str(resource_dir)}, clear=False):
+        with patch.dict(
+            os.environ,
+            {
+                "REAPER_RESOURCE_PATH": str(resource_dir),
+                "REAPER_PANNS_REPO_ROOT": str(repo_root),
+            },
+            clear=False,
+        ):
             with patch("reaper_panns_runtime.bootstrap.download_model", side_effect=fake_download):
                 with contextlib.redirect_stdout(stdout):
                     exit_code = main(["bootstrap"])
@@ -36,6 +45,7 @@ def test_bootstrap_cli_writes_config_without_real_download() -> None:
         assert payload["status"] == "ok"
         config = read_json(resource_dir / "Data" / "reaper-panns-item-report" / "config.json")
         assert "python_executable" not in config
+        assert Path(config["model"]["path"]).resolve(strict=False) == (repo_root / ".local-models" / "Cnn14_mAP=0.431.pth").resolve(strict=False)
 
 
 def test_analyze_cli_works_with_fake_model() -> None:

@@ -21,7 +21,7 @@
 ## The model download fails
 
 - Check your internet connection.
-- Delete the partially downloaded checkpoint from the runtime model directory.
+- Delete the partially downloaded checkpoint from `.local-models/` first, or from the REAPER fallback model directory if bootstrap had to use the fallback path.
 - Run `scripts/bootstrap.command` again.
 
 ## The selected item is rejected

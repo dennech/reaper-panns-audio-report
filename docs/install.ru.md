@@ -23,14 +23,15 @@
 ## Где runtime хранит данные
 
 - Config: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/config.json`
-- Model: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/models`
+- Preferred model cache: `<repo>/.local-models`
+- Fallback model cache: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/models`
 - Jobs: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/jobs`
 - Временные export WAV: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/tmp`
 - Export логи: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/logs`
 
 ## Примечания
 
-- Сам репозиторий остаётся лёгким: большой файл модели хранится вне Git.
+- Сам репозиторий остаётся лёгким: большой файл модели хранится локально вне Git, а `.local-models/` добавлена в ignore.
 - Скрипт запускает только управляемый runtime внутри `Data/reaper-panns-item-report/runtime/venv`.
 - Перед tagging аудио сводится в mono и ресемплится в `32 kHz`.
 - Отчёт — это clip-level tagging, а не event detection.

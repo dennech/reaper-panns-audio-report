@@ -11,7 +11,7 @@ dist/
 build/
 .venv/
 .python-version
+.local-models/
 tests/fixtures/generated/
 tests/fixtures/tmp/
 tmp/
-
