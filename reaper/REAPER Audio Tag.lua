@@ -10,6 +10,11 @@
 --   You install Python 3.11, the Python dependencies, and `Cnn14_mAP=0.431.pth` yourself.
 --
 --   Run `REAPER Audio Tag: Configure` to validate the Python and model paths before analysis.
+-- @changelog
+--   - Fixed fresh ReaPack installs so `runtime/src/reaper_panns_runtime/...` is installed with the package.
+--   - Removed public `REAPER Audio Tag: Setup` from ReaPack and kept `Configure` as the manual setup path.
+--   - Improved `Configure` hints and path autofill for the Python executable and `Cnn14_mAP=0.431.pth`.
+--   - Fixed GitHub Actions ReaPack metadata validation.
 -- @provides
 --   [main] REAPER Audio Tag - Configure.lua
 --   [nomain] REAPER Audio Tag - Debug Export.lua
