@@ -13,7 +13,7 @@
 -- @changelog
 --   - Fixed ReaPack `data` handling so the shipped runtime now resolves from `REAPER/Data/reaper-panns-item-report/runtime/src/...`.
 --   - Kept one-release compatibility with the accidental `REAPER/Data/runtime/src/...` path from v0.3.4 while moving fresh installs to the app-scoped Data directory.
---   - Removed the leftover `REAPER Audio Tag - Setup.lua` shim and tightened install-realistic packaging coverage around the real ReaPack layout.
+--   - Removed the leftover deprecated setup shim and tightened install-realistic packaging coverage around the real ReaPack layout.
 -- @provides
 --   [main] REAPER Audio Tag - Configure.lua
 --   [nomain] REAPER Audio Tag - Debug Export.lua
