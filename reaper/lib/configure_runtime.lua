@@ -137,19 +137,19 @@ end
 local function python_candidates(paths, current_path, deps)
   local candidates = {}
   push_unique(candidates, normalized_path(current_path, deps))
-  push_unique(candidates, path_utils.join(paths.data_dir, "venv", "bin", "python"))
+  push_unique(candidates, normalized_path(path_utils.join(paths.data_dir, "venv", "bin", "python"), deps))
   push_unique(candidates, command_path("command -v python3.11 2>/dev/null", deps))
-  push_unique(candidates, "/opt/homebrew/bin/python3.11")
-  push_unique(candidates, "/usr/local/bin/python3.11")
+  push_unique(candidates, normalized_path("/opt/homebrew/bin/python3.11", deps))
+  push_unique(candidates, normalized_path("/usr/local/bin/python3.11", deps))
   return candidates
 end
 
 local function model_candidates(paths, current_path, deps)
   local candidates = {}
   push_unique(candidates, normalized_path(current_path, deps))
-  push_unique(candidates, path_utils.join(paths.models_dir, M.MODEL_FILENAME))
-  push_unique(candidates, path_utils.join("~/Downloads", M.MODEL_FILENAME))
-  push_unique(candidates, repo_checkout_model_path(paths, deps))
+  push_unique(candidates, normalized_path(path_utils.join(paths.models_dir, M.MODEL_FILENAME), deps))
+  push_unique(candidates, normalized_path(path_utils.join("~/Downloads", M.MODEL_FILENAME), deps))
+  push_unique(candidates, normalized_path(repo_checkout_model_path(paths, deps), deps))
   return candidates
 end
 

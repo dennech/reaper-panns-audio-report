@@ -35,7 +35,23 @@ function tests.test_prefill_draft_surfaces_missing_config_message()
   local root = mktemp_dir()
   local paths = build_paths(root)
 
-  local draft, message = configure_runtime.prefill_draft(paths)
+  local draft, message = configure_runtime.prefill_draft(paths, {
+    capture_command = function()
+      return nil
+    end,
+    exists = function()
+      return false
+    end,
+    is_executable = function()
+      return false
+    end,
+    directory_exists = function(path)
+      return path == paths.runtime_source_root
+    end,
+    read_file = function()
+      return nil
+    end,
+  })
 
   luaunit.assertEquals(draft.python_path, "")
   luaunit.assertEquals(draft.model_path, "")
@@ -94,7 +110,20 @@ function tests.test_prefill_draft_migrates_only_model_from_legacy_config()
     },
   })
 
-  local draft, message = configure_runtime.prefill_draft(paths)
+  local draft, message = configure_runtime.prefill_draft(paths, {
+    capture_command = function()
+      return nil
+    end,
+    exists = function(path)
+      return path == paths.config_path or path == "/tmp/Cnn14_mAP=0.431.pth"
+    end,
+    is_executable = function()
+      return false
+    end,
+    directory_exists = function(path)
+      return path == paths.runtime_source_root
+    end,
+  })
 
   luaunit.assertEquals(draft.python_path, "")
   luaunit.assertEquals(draft.model_path, "/tmp/Cnn14_mAP=0.431.pth")
@@ -304,11 +333,13 @@ function tests.test_reapack_metadata_hides_setup_from_public_action_surface()
   local index_source = assert(path_utils.read_file("index.xml"))
   local app_paths_source = assert(path_utils.read_file("reaper/lib/app_paths.lua"))
   local runtime_client_source = assert(path_utils.read_file("reaper/lib/runtime_client.lua"))
+  local current_version_start = assert(index_source:find('<version name="0.3.2"', 1, true))
+  local current_version_block = index_source:sub(current_version_start)
 
   luaunit.assertStrContains(main_source, "-- @author dennech")
   luaunit.assertStrContains(main_source, "-- @about")
   luaunit.assertStrContains(main_source, "[main] REAPER Audio Tag - Configure.lua")
-  luaunit.assertStrContains(main_source, "../runtime/src/reaper_panns_runtime/*.py")
+  luaunit.assertStrContains(main_source, "[data] ../runtime/src/reaper_panns_runtime/*.py")
   luaunit.assertEquals(main_source:find("%[main%] REAPER Audio Tag %- Setup%.lua", 1, false) ~= nil, false)
   luaunit.assertEquals(main_source:find("REAPER Audio Tag %- Setup%.lua", 1, false) ~= nil, false)
 
@@ -323,11 +354,12 @@ function tests.test_reapack_metadata_hides_setup_from_public_action_surface()
 
   luaunit.assertStrContains(index_source, '<version name="0.3.2" author="dennech"')
   luaunit.assertStrContains(index_source, '<description><![CDATA[{\\rtf1')
-  luaunit.assertStrContains(index_source, 'main="main" file="REAPER Audio Tag - Configure.lua"')
-  luaunit.assertStrContains(index_source, '../runtime/src/reaper_panns_runtime/__main__.py')
-  luaunit.assertStrContains(index_source, '../runtime/src/reaper_panns_runtime/_vendor/metadata/class_labels_indices.csv')
-  luaunit.assertEquals(index_source:find('REAPER Audio Tag %- Setup%.lua', 1, false) ~= nil, false)
-  luaunit.assertEquals(index_source:find('main="main" file="REAPER Audio Tag %- Setup%.lua"', 1, false) ~= nil, false)
+  luaunit.assertStrContains(current_version_block, 'main="main" file="REAPER Audio Tag - Configure.lua"')
+  luaunit.assertStrContains(current_version_block, '../runtime/src/reaper_panns_runtime/__main__.py')
+  luaunit.assertStrContains(current_version_block, '../runtime/src/reaper_panns_runtime/_vendor/metadata/class_labels_indices.csv')
+  luaunit.assertEquals(current_version_block:find('REAPER Audio Tag %- Setup%.lua', 1, false) ~= nil, false)
+  luaunit.assertEquals(current_version_block:find('lib/setup_runtime%.lua', 1, false) ~= nil, false)
+  luaunit.assertEquals(current_version_block:find('lib/setup_release_info%.lua', 1, false) ~= nil, false)
 end
 
 return tests

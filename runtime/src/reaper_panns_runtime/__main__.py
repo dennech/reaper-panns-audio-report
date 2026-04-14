@@ -1,3 +1,4 @@
+# @noindex
 from .cli import main
 
 

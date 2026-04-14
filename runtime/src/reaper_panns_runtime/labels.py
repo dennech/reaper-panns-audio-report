@@ -1,3 +1,4 @@
+# @noindex
 from __future__ import annotations
 
 import csv
@@ -14,4 +15,3 @@ def load_labels() -> list[str]:
         for row in reader:
             labels.append(row["display_name"])
     return labels
-

@@ -16,11 +16,11 @@
 --   [nomain] PANNs Item Report.lua
 --   [nomain] PANNs Item Report - Debug Export.lua
 --   [nomain] lib/*.lua
---   [nomain] ../runtime/src/reaper_panns_runtime/*.py
---   [nomain] ../runtime/src/reaper_panns_runtime/_vendor/*.py
---   [nomain] ../runtime/src/reaper_panns_runtime/_vendor/panns/*.py
---   [nomain] ../runtime/src/reaper_panns_runtime/_vendor/metadata/*.csv
---   [nomain] ../runtime/src/reaper_panns_runtime/_vendor/panns/LICENSE.MIT
+--   [data] ../runtime/src/reaper_panns_runtime/*.py
+--   [data] ../runtime/src/reaper_panns_runtime/_vendor/*.py
+--   [data] ../runtime/src/reaper_panns_runtime/_vendor/panns/*.py
+--   [data] ../runtime/src/reaper_panns_runtime/_vendor/metadata/*.csv
+--   [data] ../runtime/src/reaper_panns_runtime/_vendor/panns/LICENSE.MIT
 
 local _, script_path = reaper.get_action_context()
 local script_dir = script_path:match("^(.*[\\/])") or "."
