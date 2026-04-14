@@ -60,7 +60,7 @@ _Текущее окно отчёта REAPER Audio Tag на macOS._
 - Python `3.11`
 - достаточно места на диске под Python environment и файл модели
 
-## Важные замечания
+## Важные замечания по ручной установке
 
 - пока только macOS
 - сейчас проект использует собственный URL ReaPack-репозитория
@@ -144,7 +144,7 @@ python -m pip install \
 Опциональный helper script для source checkout или отдельной загрузки репозитория:
 
 ```bash
-./scripts/setup_runtime_macos.sh
+./scripts/create_local_venv_macos.sh
 ```
 
 Этот helper остаётся полностью опциональным. Он только создаёт venv, ставит pinned dependencies и печатает путь к Python для `Configure`.
@@ -185,8 +185,14 @@ REAPER Audio Tag: Configure
 
 Укажи:
 
-- **Python executable**: Python внутри твоего локального environment
-- **Model file**: скачанный `Cnn14_mAP=0.431.pth`
+- **Python executable**: файл executable внутри твоего environment, обычно `.../venv/bin/python`
+- **Model file**: сам файл `Cnn14_mAP=0.431.pth`
+
+Примеры:
+
+- предпочтительный путь к Python: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
+- допустимый Homebrew path: `/opt/homebrew/bin/python3.11`
+- путь к модели: `/path/to/Cnn14_mAP=0.431.pth`
 
 Потом используй:
 
@@ -243,7 +249,15 @@ REAPER Audio Tag
 
 ### Неверный путь к Python
 
-Убедись, что в `Configure` указан Python из твоего локального environment, а не случайный системный путь.
+Убедись, что в `Configure` указан именно файл Python executable из твоего локального environment, а не папка и не случайный системный путь.
+
+Хорошие примеры:
+
+- `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
+- `/opt/homebrew/bin/python3.11`
+- `/usr/local/bin/python3.11`
+
+Длинный путь вида `Cellar/.../Python.framework/...` тоже может работать, но локальный venv path предпочтительнее.
 
 ### Не хватает Python-зависимостей
 
@@ -258,6 +272,13 @@ python -m pip install \
   "torchaudio==2.6.0" \
   "torchlibrosa==0.1.0"
 ```
+
+### `Configure` пишет, что в пакете не хватает runtime source
+
+- Открой `Extensions -> ReaPack -> Synchronize packages`.
+- Обнови `REAPER Audio Tag` до последней версии.
+- Снова открой `REAPER Audio Tag: Configure`.
+- Если после установки в пакете есть только `reaper/...`, но нет `runtime/src/...`, переустанови пакет из ReaPack URL этого проекта.
 
 ### Модель отклоняется
 

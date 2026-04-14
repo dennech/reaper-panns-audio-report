@@ -36,12 +36,7 @@ function M.build()
     runtime_source_root = runtime_source_root,
     runtime_dir = path_utils.join(data_dir, "runtime"),
     models_dir = path_utils.join(data_dir, "models"),
-    setup_dir = path_utils.join(data_dir, "setup"),
-    setup_state_path = path_utils.join(data_dir, "runtime", "install-state.json"),
     configure_script_path = path_utils.join(script_dir(), "REAPER Audio Tag - Configure.lua"),
-    setup_script_path = path_utils.join(script_dir(), "REAPER Audio Tag - Setup.lua"),
-    bootstrap_command = path_utils.join(repo_root, "scripts", "bootstrap.command"),
-    bootstrap_shell = path_utils.join(repo_root, "scripts", "bootstrap_runtime.sh"),
     os_name = os_name,
   }
 end

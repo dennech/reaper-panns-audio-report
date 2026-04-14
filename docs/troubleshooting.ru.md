@@ -23,7 +23,12 @@
 "/path/to/python" --version
 ```
 
-- Используй Python из своего локального venv, а не случайный системный binary.
+- Используй именно файл Python executable из своего локального venv, а не папку и не случайный системный binary.
+- Хорошие примеры:
+  `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
+  `/opt/homebrew/bin/python3.11`
+  `/usr/local/bin/python3.11`
+- Длинный путь вида `Cellar/.../Python.framework/...` тоже может работать, но локальный venv path предпочтительнее.
 - Если нужно, пересоздай venv через `python3.11 -m venv ...`.
 
 ## `Configure` пишет, что не хватает зависимостей
@@ -43,6 +48,7 @@ python -m pip install \
 ## `Configure` отклоняет файл модели
 
 - Проверь, что имя файла ровно `Cnn14_mAP=0.431.pth`.
+- Выбирай сам файл, а не папку, в которой он лежит.
 - Проверь checksum:
 
 ```bash
@@ -60,6 +66,13 @@ shasum -a 256 /path/to/Cnn14_mAP=0.431.pth
 - Убедись, что файл модели всё ещё существует по сохранённому пути.
 - Если раньше использовался bundled-runtime flow, пересохрани config в новом прозрачном формате.
 
+## `Configure` пишет, что в пакете не хватает runtime source
+
+- Открой `Extensions -> ReaPack -> Synchronize packages`.
+- Обнови `REAPER Audio Tag` до последней версии из ReaPack URL этого проекта.
+- Снова открой `REAPER Audio Tag: Configure`.
+- Если в установленном пакете по-прежнему есть только `reaper/...`, но нет `runtime/src/...`, переустанови пакет через ReaPack.
+
 ## Первый запуск медленный
 
 - Это нормально для первого запуска.
@@ -72,7 +85,7 @@ shasum -a 256 /path/to/Cnn14_mAP=0.431.pth
 - `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/tmp`
 - `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/logs`
 
-## Developer и recovery note
+## Developer note
 
-- `scripts/bootstrap.command` всё ещё существует для source checkout и recovery.
-- Он не входит в обычный публичный install flow.
+- Source checkout может использовать локальный venv и `scripts/create_local_venv_macos.sh`.
+- Это не входит в обычный публичный install flow.

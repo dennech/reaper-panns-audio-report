@@ -1,5 +1,5 @@
 -- @description REAPER Audio Tag
--- @version 0.3.1
+-- @version 0.3.2
 -- @author dennech
 -- @link https://github.com/dennech/reaper-audio-tag
 -- @screenshot https://raw.githubusercontent.com/dennech/reaper-audio-tag/main/docs/images/reaper-audio-tag-hero.png
@@ -12,11 +12,15 @@
 --   Run `REAPER Audio Tag: Configure` to validate the Python and model paths before analysis.
 -- @provides
 --   [main] REAPER Audio Tag - Configure.lua
---   [nomain] REAPER Audio Tag - Setup.lua
 --   [nomain] REAPER Audio Tag - Debug Export.lua
 --   [nomain] PANNs Item Report.lua
 --   [nomain] PANNs Item Report - Debug Export.lua
 --   [nomain] lib/*.lua
+--   [nomain] ../runtime/src/reaper_panns_runtime/*.py
+--   [nomain] ../runtime/src/reaper_panns_runtime/_vendor/*.py
+--   [nomain] ../runtime/src/reaper_panns_runtime/_vendor/panns/*.py
+--   [nomain] ../runtime/src/reaper_panns_runtime/_vendor/metadata/*.csv
+--   [nomain] ../runtime/src/reaper_panns_runtime/_vendor/panns/LICENSE.MIT
 
 local _, script_path = reaper.get_action_context()
 local script_dir = script_path:match("^(.*[\\/])") or "."
@@ -601,6 +605,14 @@ local function render_path_row(label, path_value, status, browse_label, browse_f
   return path_value, changed_any
 end
 
+local function python_browse_path()
+  return configure_runtime.suggested_python_path(paths, state.configure.python_path)
+end
+
+local function model_browse_path()
+  return configure_runtime.suggested_model_path(paths, state.configure.model_path)
+end
+
 local function choose_file(initial_path, prompt, extension_hint)
   if not reaper.GetUserFileNameForRead then
     return nil
@@ -632,10 +644,10 @@ local function render_configure()
       ok = path_utils.directory_exists(paths.runtime_source_root),
       message = path_utils.directory_exists(paths.runtime_source_root)
           and "Shipped runtime source is present."
-          or "The shipped runtime source is missing from this installed package.",
+          or configure_runtime.runtime_missing_message(),
     },
-    python = { ok = false, message = "Choose a Python 3.11 executable." },
-    model = { ok = false, message = "Choose the PANNs checkpoint file." },
+    python = { ok = false, message = "Choose the python or python3.11 executable file, for example .../venv/bin/python." },
+    model = { ok = false, message = "Choose the file Cnn14_mAP=0.431.pth, not the folder that contains it." },
   }
   ImGui.TextColored(
     ctx,
@@ -649,10 +661,11 @@ local function render_configure()
     validation.python,
     "Browse Python",
     function(current)
-      return choose_file(current, "Choose Python 3.11 executable", "")
+      return choose_file(python_browse_path() or current, "Choose the python or python3.11 executable file", "")
     end
   )
   state.configure.python_path = updated_python_path
+  ImGui.TextDisabled(ctx, "Choose the executable file, for example .../venv/bin/python or /opt/homebrew/bin/python3.11.")
   ImGui.Spacing(ctx)
   local updated_model_path, model_changed = render_path_row(
     "Model file",
@@ -660,10 +673,11 @@ local function render_configure()
     validation.model,
     "Browse Model",
     function(current)
-      return choose_file(current, "Choose Cnn14 model file", "pth")
+      return choose_file(model_browse_path() or current, "Choose the Cnn14_mAP=0.431.pth model file", "pth")
     end
   )
   state.configure.model_path = updated_model_path
+  ImGui.TextDisabled(ctx, "Choose the exact file Cnn14_mAP=0.431.pth, not the folder that contains it.")
   if python_changed or model_changed then
     state.configure.validation = nil
     state.configure.message = nil

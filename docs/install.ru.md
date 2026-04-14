@@ -69,7 +69,7 @@ python -m pip install \
 Опциональный helper для source checkout или отдельной загрузки репозитория:
 
 ```bash
-./scripts/setup_runtime_macos.sh
+./scripts/create_local_venv_macos.sh
 ```
 
 Этот helper остаётся только удобной обёрткой. Он запускается в Terminal, а не внутри REAPER, и не скачивает модель.
@@ -97,10 +97,16 @@ shasum -a 256 /path/to/Cnn14_mAP=0.431.pth
 1. Открой Actions list.
 2. Запусти `REAPER Audio Tag: Configure`.
 3. Укажи:
-   - Python executable
-   - model file
+   - Python executable: файл executable внутри environment, обычно `.../venv/bin/python`
+   - model file: сам файл `Cnn14_mAP=0.431.pth`
 4. Нажми `Validate`.
 5. Нажми `Save`.
+
+Примеры:
+
+- предпочтительный путь к Python: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
+- допустимый Homebrew path: `/opt/homebrew/bin/python3.11`
+- путь к модели: `/path/to/Cnn14_mAP=0.431.pth`
 
 ### 8. Запусти отчёт
 
@@ -121,7 +127,7 @@ shasum -a 256 /path/to/Cnn14_mAP=0.431.pth
 Source checkout по-прежнему может использовать:
 
 1. `git clone`
-2. `scripts/bootstrap.command`
+2. создание локального venv вручную или через `scripts/create_local_venv_macos.sh`
 3. ручную загрузку `reaper/REAPER Audio Tag.lua`
 
 Это остаётся developer/recovery tooling, а не основным публичным install flow.

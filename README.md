@@ -60,7 +60,7 @@ This is a practical clip-level inspection tool. It is **not** a timeline event d
 - Python `3.11`
 - Enough disk space for the Python environment and the model file
 
-## Setup Notes
+## Manual Install Notes
 
 - macOS only for now
 - This project currently uses its own custom ReaPack repository URL
@@ -144,7 +144,7 @@ The Python path you will use later in REAPER is:
 Optional helper script for source checkouts or manual repository downloads:
 
 ```bash
-./scripts/setup_runtime_macos.sh
+./scripts/create_local_venv_macos.sh
 ```
 
 That helper stays fully optional. It only creates the venv, installs the pinned dependencies, and prints the Python path to paste into `Configure`.
@@ -185,8 +185,14 @@ REAPER Audio Tag: Configure
 
 Set:
 
-- **Python executable**: the Python executable inside your local environment
-- **Model file**: the downloaded `Cnn14_mAP=0.431.pth` file
+- **Python executable**: the executable file inside your environment, usually `.../venv/bin/python`
+- **Model file**: the downloaded file `Cnn14_mAP=0.431.pth`
+
+Examples:
+
+- preferred Python path: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
+- acceptable Homebrew path: `/opt/homebrew/bin/python3.11`
+- model path: `/path/to/Cnn14_mAP=0.431.pth`
 
 Then use:
 
@@ -243,7 +249,15 @@ Install `ReaImGui: ReaScript binding for Dear ImGui` from ReaPack and restart RE
 
 ### Python path is invalid
 
-Make sure `Configure` points to the Python executable inside your local environment, not to a random system path.
+Make sure `Configure` points to the Python executable file inside your local environment, not to a folder or a random system path.
+
+Good examples:
+
+- `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
+- `/opt/homebrew/bin/python3.11`
+- `/usr/local/bin/python3.11`
+
+The long `Cellar/.../Python.framework/...` path can work, but the local venv path is preferred.
 
 ### Python dependencies are missing
 
@@ -258,6 +272,13 @@ python -m pip install \
   "torchaudio==2.6.0" \
   "torchlibrosa==0.1.0"
 ```
+
+### `Configure` says the shipped runtime source is missing
+
+- Open `Extensions -> ReaPack -> Synchronize packages`.
+- Update `REAPER Audio Tag` to the latest version.
+- Reopen `REAPER Audio Tag: Configure`.
+- If the installed package still has only `reaper/...` files but no `runtime/src/...`, reinstall the package from this repo's ReaPack URL.
 
 ### The model file is rejected
 

@@ -69,7 +69,7 @@ python -m pip install \
 Optional helper for source checkouts or manual repository downloads:
 
 ```bash
-./scripts/setup_runtime_macos.sh
+./scripts/create_local_venv_macos.sh
 ```
 
 That helper is optional convenience only. It runs in Terminal, not in REAPER, and does not download the model.
@@ -97,10 +97,16 @@ shasum -a 256 /path/to/Cnn14_mAP=0.431.pth
 1. Open the Actions list.
 2. Run `REAPER Audio Tag: Configure`.
 3. Set:
-   - Python executable
-   - model file
+   - Python executable: the executable file inside your environment, usually `.../venv/bin/python`
+   - model file: the exact file `Cnn14_mAP=0.431.pth`
 4. Click `Validate`.
 5. Click `Save`.
+
+Examples:
+
+- preferred Python path: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
+- acceptable Homebrew path: `/opt/homebrew/bin/python3.11`
+- model path: `/path/to/Cnn14_mAP=0.431.pth`
 
 ### 8. Run the report
 
@@ -121,7 +127,7 @@ If the configuration is missing or invalid, the main action opens `Configure`.
 Source checkout workflows can still use:
 
 1. `git clone`
-2. `scripts/bootstrap.command`
-3. manually loading `reaper/REAPER Audio Tag.lua`
+2. create a local venv manually or with `scripts/create_local_venv_macos.sh`
+3. manually load `reaper/REAPER Audio Tag.lua`
 
 That remains developer and recovery tooling only, not the main public install path.

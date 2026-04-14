@@ -24,6 +24,7 @@ end
 
 local function build_paths(root)
   return {
+    repo_root = path_utils.join(root, "Repo"),
     data_dir = path_utils.join(root, "Data", "reaper-panns-item-report"),
     config_path = path_utils.join(root, "Data", "reaper-panns-item-report", "config.json"),
     runtime_source_root = path_utils.join(root, "Scripts", "runtime", "src"),
@@ -38,6 +39,43 @@ function tests.test_prefill_draft_surfaces_missing_config_message()
 
   luaunit.assertEquals(draft.python_path, "")
   luaunit.assertEquals(draft.model_path, "")
+  luaunit.assertStrContains(message, "Configuration is missing")
+
+  os.execute("rm -rf " .. path_utils.sh_quote(root))
+end
+
+function tests.test_prefill_draft_autodetects_python_and_model_candidates()
+  local root = mktemp_dir()
+  local paths = build_paths(root)
+  local expected_python = path_utils.join(paths.data_dir, "venv", "bin", "python")
+  local expected_model = path_utils.join(root, "Downloads", configure_runtime.MODEL_FILENAME)
+
+  local draft, message = configure_runtime.prefill_draft(paths, {
+    expand_user = function(path)
+      if path == "~/Downloads/" .. configure_runtime.MODEL_FILENAME then
+        return expected_model
+      end
+      return path
+    end,
+    exists = function(path)
+      return path == expected_python or path == expected_model
+    end,
+    is_executable = function(path)
+      return path == expected_python
+    end,
+    directory_exists = function(path)
+      return path == paths.runtime_source_root
+    end,
+    capture_command = function()
+      return nil
+    end,
+    read_file = function()
+      return nil
+    end,
+  })
+
+  luaunit.assertEquals(draft.python_path, expected_python)
+  luaunit.assertEquals(draft.model_path, expected_model)
   luaunit.assertStrContains(message, "Configuration is missing")
 
   os.execute("rm -rf " .. path_utils.sh_quote(root))
@@ -264,22 +302,31 @@ function tests.test_reapack_metadata_hides_setup_from_public_action_surface()
   local configure_source = assert(path_utils.read_file("reaper/REAPER Audio Tag - Configure.lua"))
   local setup_source = assert(path_utils.read_file("reaper/REAPER Audio Tag - Setup.lua"))
   local index_source = assert(path_utils.read_file("index.xml"))
+  local app_paths_source = assert(path_utils.read_file("reaper/lib/app_paths.lua"))
+  local runtime_client_source = assert(path_utils.read_file("reaper/lib/runtime_client.lua"))
 
   luaunit.assertStrContains(main_source, "-- @author dennech")
   luaunit.assertStrContains(main_source, "-- @about")
   luaunit.assertStrContains(main_source, "[main] REAPER Audio Tag - Configure.lua")
-  luaunit.assertStrContains(main_source, "[nomain] REAPER Audio Tag - Setup.lua")
+  luaunit.assertStrContains(main_source, "../runtime/src/reaper_panns_runtime/*.py")
   luaunit.assertEquals(main_source:find("%[main%] REAPER Audio Tag %- Setup%.lua", 1, false) ~= nil, false)
+  luaunit.assertEquals(main_source:find("REAPER Audio Tag %- Setup%.lua", 1, false) ~= nil, false)
 
   luaunit.assertStrContains(configure_source, "-- @noindex")
   luaunit.assertStrContains(setup_source, "-- @noindex")
   luaunit.assertStrContains(setup_source, '_G.REAPER_AUDIO_TAG_START_MODE = "configure"')
   luaunit.assertEquals(setup_source:find("setup_runtime", 1, true) ~= nil, false)
+  luaunit.assertEquals(app_paths_source:find("setup_script_path", 1, true) ~= nil, false)
+  luaunit.assertEquals(app_paths_source:find("bootstrap_command", 1, true) ~= nil, false)
+  luaunit.assertEquals(app_paths_source:find("bootstrap_shell", 1, true) ~= nil, false)
+  luaunit.assertEquals(runtime_client_source:find("open_bootstrap", 1, true) ~= nil, false)
 
-  luaunit.assertStrContains(index_source, '<version name="0.3.1" author="dennech"')
+  luaunit.assertStrContains(index_source, '<version name="0.3.2" author="dennech"')
   luaunit.assertStrContains(index_source, '<description><![CDATA[{\\rtf1')
   luaunit.assertStrContains(index_source, 'main="main" file="REAPER Audio Tag - Configure.lua"')
-  luaunit.assertStrContains(index_source, '<source file="REAPER Audio Tag - Setup.lua">')
+  luaunit.assertStrContains(index_source, '../runtime/src/reaper_panns_runtime/__main__.py')
+  luaunit.assertStrContains(index_source, '../runtime/src/reaper_panns_runtime/_vendor/metadata/class_labels_indices.csv')
+  luaunit.assertEquals(index_source:find('REAPER Audio Tag %- Setup%.lua', 1, false) ~= nil, false)
   luaunit.assertEquals(index_source:find('main="main" file="REAPER Audio Tag %- Setup%.lua"', 1, false) ~= nil, false)
 end
 

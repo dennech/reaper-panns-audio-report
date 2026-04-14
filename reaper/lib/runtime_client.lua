@@ -49,20 +49,6 @@ function M.runtime_ready(paths)
   return path_utils.exists(python_path)
 end
 
-function M.open_bootstrap(paths)
-  if not path_utils.exists(paths.bootstrap_command) then
-    return false, "bootstrap.command was not found."
-  end
-  local command
-  if paths.os_name:match("^Win") then
-    command = 'cmd /c start "" "' .. paths.bootstrap_command .. '"'
-  else
-    command = "open " .. path_utils.sh_quote(paths.bootstrap_command)
-  end
-  reaper.ExecProcess(command, -2)
-  return true
-end
-
 local function write_request(path, payload)
   local text = json.encode(payload)
   path_utils.write_file(path, text)
@@ -124,7 +110,6 @@ function M.start_job(paths, item_payload, options)
     return nil, err
   end
 
-  local python_path = paths.python_path
   if type(config.python) ~= "table" or type(config.python.path) ~= "string" or config.python.path == "" then
     return nil, "Runtime config is missing the Python path. Run REAPER Audio Tag: Configure again."
   end

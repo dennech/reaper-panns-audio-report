@@ -6,6 +6,13 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 if command -v reapack-index >/dev/null 2>&1; then
   REAPACK_INDEX_BIN="$(command -v reapack-index)"
+elif command -v ruby >/dev/null 2>&1; then
+  GEM_USER_BIN="$(ruby -e 'require "rubygems"; print File.join(Gem.user_dir, "bin", "reapack-index")')"
+  if [[ -x "${GEM_USER_BIN}" ]]; then
+    REAPACK_INDEX_BIN="${GEM_USER_BIN}"
+  else
+    REAPACK_INDEX_BIN="$(find "${HOME}/.gem/ruby" -path '*/bin/reapack-index' -print -quit 2>/dev/null || true)"
+  fi
 else
   REAPACK_INDEX_BIN="$(find "${HOME}/.gem/ruby" -path '*/bin/reapack-index' -print -quit 2>/dev/null || true)"
 fi

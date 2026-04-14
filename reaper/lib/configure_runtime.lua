@@ -4,6 +4,7 @@ local path_utils = require("path_utils")
 local M = {}
 
 M.CONFIG_SCHEMA = "reaper-audio-tag/config/v1"
+M.PACKAGE_VERSION = "0.3.2"
 M.MODEL_FILENAME = "Cnn14_mAP=0.431.pth"
 M.MODEL_SHA256 = "0dc499e40e9761ef5ea061ffc77697697f277f6a960894903df3ada000e34b31"
 M.MODEL_SIZE_BYTES = 327428481
@@ -84,6 +85,96 @@ local function normalized_path(raw, deps)
   return expanded:gsub("^%s+", "")
 end
 
+local function push_unique(paths, candidate)
+  local normalized = tostring(candidate or "")
+  if normalized == "" then
+    return
+  end
+  for _, existing in ipairs(paths) do
+    if existing == normalized then
+      return
+    end
+  end
+  paths[#paths + 1] = normalized
+end
+
+local function first_matching_candidate(candidates, matcher)
+  for _, candidate in ipairs(candidates) do
+    if matcher(candidate) then
+      return candidate
+    end
+  end
+  return ""
+end
+
+local function command_path(command, deps)
+  local output = deps.capture_command(command)
+  if not output or output == "" then
+    return nil
+  end
+  return normalized_path(output, deps)
+end
+
+local function runtime_missing_message()
+  return string.format(
+    "The installed ReaPack package is incomplete. Run Extensions -> ReaPack -> Synchronize packages, update REAPER Audio Tag to v%s or newer, then reopen Configure.",
+    M.PACKAGE_VERSION
+  )
+end
+
+function M.runtime_missing_message()
+  return runtime_missing_message()
+end
+
+local function repo_checkout_model_path(paths, deps)
+  local repo_marker = path_utils.join(paths.repo_root, "pyproject.toml")
+  if not deps.exists(repo_marker) then
+    return nil
+  end
+  return path_utils.join(paths.repo_root, ".local-models", M.MODEL_FILENAME)
+end
+
+local function python_candidates(paths, current_path, deps)
+  local candidates = {}
+  push_unique(candidates, normalized_path(current_path, deps))
+  push_unique(candidates, path_utils.join(paths.data_dir, "venv", "bin", "python"))
+  push_unique(candidates, command_path("command -v python3.11 2>/dev/null", deps))
+  push_unique(candidates, "/opt/homebrew/bin/python3.11")
+  push_unique(candidates, "/usr/local/bin/python3.11")
+  return candidates
+end
+
+local function model_candidates(paths, current_path, deps)
+  local candidates = {}
+  push_unique(candidates, normalized_path(current_path, deps))
+  push_unique(candidates, path_utils.join(paths.models_dir, M.MODEL_FILENAME))
+  push_unique(candidates, path_utils.join("~/Downloads", M.MODEL_FILENAME))
+  push_unique(candidates, repo_checkout_model_path(paths, deps))
+  return candidates
+end
+
+function M.suggested_python_path(paths, current_path, deps)
+  deps = build_deps(deps)
+  local current = normalized_path(current_path, deps)
+  if current ~= "" then
+    return current
+  end
+  return first_matching_candidate(python_candidates(paths, current_path, deps), function(candidate)
+    return deps.exists(candidate) and deps.is_executable(candidate)
+  end)
+end
+
+function M.suggested_model_path(paths, current_path, deps)
+  deps = build_deps(deps)
+  local current = normalized_path(current_path, deps)
+  if current ~= "" then
+    return current
+  end
+  return first_matching_candidate(model_candidates(paths, current_path, deps), function(candidate)
+    return deps.exists(candidate) and not deps.directory_exists(candidate)
+  end)
+end
+
 local function config_payload_for_draft(paths, draft, validation)
   return {
     schema_version = M.CONFIG_SCHEMA,
@@ -145,7 +236,7 @@ local function python_validation_result(path_value)
   return {
     path = path_value,
     ok = false,
-    message = "Choose a Python 3.11 executable.",
+    message = "Choose the python or python3.11 executable file, for example .../venv/bin/python.",
     version = nil,
     version_string = nil,
     versions = {},
@@ -156,7 +247,7 @@ local function model_validation_result(path_value)
   return {
     path = path_value,
     ok = false,
-    message = "Choose the PANNs checkpoint file.",
+    message = "Choose the file Cnn14_mAP=0.431.pth, not the folder that contains it.",
     filename = nil,
     sha256 = nil,
     size_bytes = nil,
@@ -173,12 +264,16 @@ local function validate_python_path(paths, python_path, deps)
     result.message = "Python 3.11 was not found at the selected path."
     return result
   end
+  if deps.directory_exists(expanded) then
+    result.message = "Choose the executable file inside your environment, for example .../venv/bin/python."
+    return result
+  end
   if not deps.is_executable(expanded) then
     result.message = "The selected Python path is not executable."
     return result
   end
   if not deps.directory_exists(paths.runtime_source_root) then
-    result.message = "The shipped runtime source is missing from the installed package."
+    result.message = runtime_missing_message()
     return result
   end
 
@@ -236,6 +331,10 @@ local function validate_model_path(model_path, deps)
     result.message = "The selected model file was not found."
     return result
   end
+  if deps.directory_exists(expanded) then
+    result.message = "Choose the file Cnn14_mAP=0.431.pth, not the folder that contains it."
+    return result
+  end
 
   local filename = path_utils.basename(expanded)
   result.filename = filename
@@ -285,6 +384,12 @@ end
 function M.prefill_draft(paths, deps)
   deps = build_deps(deps)
   local draft, payload = M.load_draft(paths, deps)
+  if draft.python_path == "" then
+    draft.python_path = M.suggested_python_path(paths, "", deps)
+  end
+  if draft.model_path == "" then
+    draft.model_path = M.suggested_model_path(paths, "", deps)
+  end
   if not payload then
     return draft, "Configuration is missing. Set your Python path and model path."
   end
@@ -316,7 +421,7 @@ function M.saved_config_status(paths, deps)
   if not deps.directory_exists(paths.runtime_source_root) then
     return {
       ok = false,
-      message = "The shipped runtime source is missing from this installed package.",
+      message = runtime_missing_message(),
       draft = draft,
       payload = payload,
     }
@@ -373,7 +478,7 @@ function M.validate_draft(paths, draft, deps)
   local runtime_ok = deps.directory_exists(paths.runtime_source_root)
   local runtime_message = runtime_ok
       and "Shipped runtime source is present."
-      or "The shipped runtime source is missing from this installed package."
+      or runtime_missing_message()
 
   return {
     ok = runtime_ok and python.ok and model.ok,

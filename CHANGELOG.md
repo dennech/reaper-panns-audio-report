@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2
+
+- Fixed the ReaPack package so fresh installs include `runtime/src/reaper_panns_runtime/...` instead of only the Lua files under `reaper/...`.
+- Removed `REAPER Audio Tag: Setup` from the public ReaPack action surface and cleaned out the remaining installer-era runtime/setup glue from the active product path.
+- Improved `Configure` with clearer file-level guidance for the Python executable and model checkpoint, deterministic path prefill, and an actionable incomplete-package message for outdated ReaPack installs.
+- Renamed the optional Terminal helper to `scripts/create_local_venv_macos.sh` so the manual setup story no longer reads like an in-REAPER installer flow.
+- Fixed GitHub Actions ReaPack metadata validation so `reapack-index` is found reliably on the macOS runner.
+
 ## 0.3.1
 
 - Bumped the ReaPack package version so fresh installs and updates no longer reuse the stale `0.3.0` action surface.
