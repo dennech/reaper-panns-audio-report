@@ -1,21 +1,21 @@
-# Установка
+# Installation
 
 ## Рекомендуемый путь для macOS
 
 ### 1. Установи REAPER и ReaPack
 
 1. Установи REAPER `7.x`.
-2. Открой REAPER и проверь, есть ли меню `Extensions -> ReaPack -> Browse Packages...`.
-3. Если меню нет:
+2. Открой REAPER и проверь, есть ли `Extensions -> ReaPack -> Browse Packages...`.
+3. Если пункта нет:
    - скачай ReaPack с [reapack.com](https://reapack.com/)
    - в REAPER открой `Options -> Show REAPER resource path in Finder`
    - положи скачанный файл ReaPack в папку `UserPlugins`
    - перезапусти REAPER
 
-### 2. Добавь репозиторий REAPER Audio Tag в ReaPack
+### 2. Добавь ReaPack-репозиторий этого проекта
 
 1. В REAPER открой `Extensions -> ReaPack -> Import repositories...`.
-2. Добавь URL этого репозитория:
+2. Добавь:
 
    `https://raw.githubusercontent.com/dennech/reaper-audio-tag/main/index.xml`
 
@@ -29,61 +29,99 @@
 2. Установи пакет.
 3. Перезапусти REAPER.
 
-Если позже `ReaImGui` всё ещё будет отсутствовать, `REAPER Audio Tag: Setup` и основной action сами отправят тебя обратно в поиск нужного пакета через ReaPack.
+### 4. Установи Python 3.11
 
-### 4. Запусти Setup action
+Установи Python `3.11` отдельно.
 
-1. Открой Actions list в REAPER.
-2. Найди `REAPER Audio Tag: Setup`.
-3. Запусти его один раз.
-4. Дождись завершения Setup.
+Рекомендуемый вариант:
 
-Setup автоматически:
+- официальный macOS installer с python.org
 
-- скачивает version-pinned bundled runtime из соответствующего GitHub release
-- проверяет checksum скачанного bundle
-- устанавливает bundled Python runtime и packaged dependencies в REAPER data directory
-- устанавливает pinned checkpoint `Cnn14_mAP=0.431.pth`
-- записывает `config.json` в `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/`
+Потом проверь в Terminal:
 
-В обычном пользовательском сценарии не нужно отдельно ставить Python и не нужно вручную скачивать модель PANNs.
+```bash
+python3.11 --version
+```
 
-### 5. Запусти отчёт
+### 5. Создай локальный venv и установи Python-зависимости
 
-1. Выбери ровно один аудио-item в REAPER.
-2. Найди `REAPER Audio Tag` в Actions list.
-3. Запусти action.
+Рекомендуемое место:
 
-## Ручной fallback
+```text
+~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv
+```
 
-Если не хочется ставить через ReaPack:
+Прозрачный ручной путь:
 
-1. Открой страницу [GitHub Releases](https://github.com/dennech/reaper-audio-tag/releases/latest).
-2. Скачай installer ZIP под архитектуру своего Mac.
-3. Запусти `Install.command`.
-4. Открой REAPER.
-5. Запусти `REAPER Audio Tag: Setup`.
-6. Запусти `REAPER Audio Tag`.
+```bash
+mkdir -p "$HOME/Library/Application Support/REAPER/Data/reaper-panns-item-report"
+python3.11 -m venv "$HOME/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv"
+source "$HOME/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/activate"
+python -m pip install --upgrade pip
+python -m pip install \
+  "numpy>=1.26,<2.0" \
+  "soundfile>=0.12,<1.0" \
+  "torch==2.6.0" \
+  "torchaudio==2.6.0" \
+  "torchlibrosa==0.1.0"
+```
 
-Этот fallback использует тот же bundled runtime и тот же Setup action. Меняется только способ копирования Lua-скриптов в REAPER.
+Опциональный helper для source checkout или отдельной загрузки репозитория:
 
-## Настройка для разработчиков
+```bash
+./scripts/setup_runtime_macos.sh
+```
 
-Разработчики по-прежнему могут использовать source-checkout flow:
+Этот helper остаётся только удобной обёрткой. Он запускается в Terminal, а не внутри REAPER, и не скачивает модель.
 
-1. Клонируй репозиторий.
-2. Запусти `scripts/bootstrap.command`.
-3. Добавь `reaper/REAPER Audio Tag.lua` в REAPER Actions list.
+### 6. Скачай модель вручную
 
-`bootstrap.command` остаётся developer/recovery-путём. Это больше не основной публичный install entrypoint.
+Нужная модель:
 
-## Где хранятся runtime-данные
+- файл: `Cnn14_mAP=0.431.pth`
+- размер: примерно `327 MB`
+- sha256: `0dc499e40e9761ef5ea061ffc77697697f277f6a960894903df3ada000e34b31`
 
-- Config: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/config.json`
-- Bundled runtime: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime`
-- Bundled model: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/models`
-- Jobs: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/jobs`
-- Export temp WAV: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/tmp`
-- Export logs: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/logs`
+Рекомендуемый источник:
 
-В developer checkout по-прежнему может использоваться `<repo>/.local-models`, если `bootstrap.command` запускается из writable source tree.
+- [Скачать checkpoint с Zenodo](https://zenodo.org/records/3987831/files/Cnn14_mAP%3D0.431.pth)
+
+Проверь checksum:
+
+```bash
+shasum -a 256 /path/to/Cnn14_mAP=0.431.pth
+```
+
+### 7. Запусти Configure внутри REAPER
+
+1. Открой Actions list.
+2. Запусти `REAPER Audio Tag: Configure`.
+3. Укажи:
+   - Python executable
+   - model file
+4. Нажми `Validate`.
+5. Нажми `Save`.
+
+### 8. Запусти отчёт
+
+1. Выбери ровно один audio item.
+2. Запусти `REAPER Audio Tag`.
+
+Если конфигурация отсутствует или невалидна, основной action откроет `Configure`.
+
+## Примечания
+
+- `FFmpeg` для текущей версии не нужен.
+- REAPER не устанавливает Python за тебя.
+- REAPER не скачивает модель за тебя.
+- Пока проект использует собственный ReaPack URL напрямую.
+
+## Для разработчиков
+
+Source checkout по-прежнему может использовать:
+
+1. `git clone`
+2. `scripts/bootstrap.command`
+3. ручную загрузку `reaper/REAPER Audio Tag.lua`
+
+Это остаётся developer/recovery tooling, а не основным публичным install flow.

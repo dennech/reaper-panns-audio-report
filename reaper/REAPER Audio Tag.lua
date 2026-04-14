@@ -1,9 +1,10 @@
 -- @description REAPER Audio Tag
--- @version 0.2.0
+-- @version 0.3.0
 -- @author Project contributors
 -- @link https://github.com/dennech/reaper-audio-tag
 -- @screenshot https://raw.githubusercontent.com/dennech/reaper-audio-tag/main/docs/images/reaper-audio-tag-hero.png
 -- @provides
+--   [main] REAPER Audio Tag - Configure.lua
 --   [main] REAPER Audio Tag - Setup.lua
 --   [nomain] REAPER Audio Tag - Debug Export.lua
 --   [nomain] PANNs Item Report.lua
@@ -19,6 +20,7 @@ package.path = table.concat({
 
 local app_paths = require("app_paths")
 local audio_export = require("audio_export")
+local configure_runtime = require("configure_runtime")
 local path_utils = require("path_utils")
 local report_icons = require("report_icons")
 local report_presenter = require("report_presenter")
@@ -51,21 +53,34 @@ path_utils.ensure_dir(paths.tmp_dir)
 path_utils.ensure_dir(paths.jobs_dir)
 report_run_cleanup.prune_stale(paths)
 
+local start_mode = _G.REAPER_AUDIO_TAG_START_MODE or "report"
+local start_message = _G.REAPER_AUDIO_TAG_OPEN_MESSAGE
+_G.REAPER_AUDIO_TAG_START_MODE = nil
+_G.REAPER_AUDIO_TAG_OPEN_MESSAGE = nil
+
 local ctx = ImGui.CreateContext("REAPER Audio Tag")
 local state = {
   window_open = true,
   current_view = "compact",
   screen = "boot",
+  intent = start_mode,
   result = nil,
   export_session = nil,
   job = nil,
-  last_error = nil,
+  last_error = start_message,
   last_loading_ms = 0,
   last_export_ms = 0,
   focused_tag = nil,
   export_log_file = nil,
   notice = nil,
   run_artifacts = nil,
+  configure = {
+    initialized = false,
+    python_path = "",
+    model_path = "",
+    validation = nil,
+    message = nil,
+  },
   ui = {
     base_font = nil,
     fonts_ready = false,
@@ -315,6 +330,91 @@ local function set_result(result)
   invalidate_view_model()
 end
 
+local function apply_configure_draft(draft, message)
+  draft = draft or configure_runtime.empty_draft(paths)
+  state.configure.python_path = draft.python_path or ""
+  state.configure.model_path = draft.model_path or ""
+  state.configure.validation = nil
+  state.configure.message = message
+  state.configure.initialized = true
+end
+
+local function open_configure(message, draft)
+  if not draft and not state.configure.initialized then
+    local default_draft, default_message = configure_runtime.prefill_draft(paths)
+    draft = default_draft
+    if not message or message == "" then
+      message = default_message
+    end
+  end
+  if draft or not state.configure.initialized then
+    apply_configure_draft(draft, message)
+  elseif message and message ~= "" then
+    state.configure.message = message
+  end
+  state.screen = "configure"
+  state.last_error = message or state.last_error
+end
+
+local function ensure_configure_ready()
+  if state.configure.initialized then
+    return
+  end
+  local draft, message = configure_runtime.prefill_draft(paths)
+  apply_configure_draft(draft, message)
+end
+
+local function validate_configure()
+  ensure_configure_ready()
+  local validation = configure_runtime.validate_draft(paths, {
+    python_path = state.configure.python_path,
+    model_path = state.configure.model_path,
+  })
+  validation.python_path = state.configure.python_path
+  validation.model_path = state.configure.model_path
+  state.configure.validation = validation
+  state.configure.message = validation.ok and "Validation passed. You can save this configuration." or nil
+  if not validation.ok then
+    if validation.runtime and not validation.runtime.ok then
+      state.last_error = validation.runtime.message
+    elseif validation.python and not validation.python.ok then
+      state.last_error = validation.python.message
+    elseif validation.model and not validation.model.ok then
+      state.last_error = validation.model.message
+    end
+  else
+    state.last_error = nil
+  end
+  return validation
+end
+
+local function save_configuration()
+  local validation = state.configure.validation
+  if not configure_runtime.validation_matches_draft(validation, {
+    python_path = state.configure.python_path,
+    model_path = state.configure.model_path,
+  }) then
+    validation = validate_configure()
+  end
+  if not validation or not validation.ok then
+    return false
+  end
+
+  local ok, payload_or_err = configure_runtime.save(paths, {
+    python_path = state.configure.python_path,
+    model_path = state.configure.model_path,
+  }, validation)
+  if not ok then
+    state.last_error = payload_or_err
+    return false
+  end
+
+  state.last_error = nil
+  state.notice = "Configuration saved."
+  state.configure.message = "Configuration saved. Select one audio item and run REAPER Audio Tag."
+  return true, payload_or_err
+end
+
 local function current_view_model()
   if not state.result then
     invalidate_view_model()
@@ -342,8 +442,8 @@ local function status_chip()
   if state.screen == "error" then
     return "Oops", "error", "error"
   end
-  if state.screen == "setup" then
-    return "Setup", "accent", "details"
+  if state.screen == "configure" then
+    return "Configure", "accent", "details"
   end
   return "Warm up", "accent", "details"
 end
@@ -359,7 +459,7 @@ local function internal_ui_error_result(message)
     predictions = {},
     highlights = {},
     warnings = { "The report window hit an internal UI rendering error." },
-    model_status = { name = "Cnn14", source = "managed-runtime" },
+    model_status = { name = "Cnn14", source = "configured python" },
     item = {},
     error = { code = "ui_render_failed", message = message },
   }
@@ -367,6 +467,11 @@ end
 
 local function start_analysis(options)
   options = options or {}
+  local config_status = configure_runtime.saved_config_status(paths)
+  if not config_status.ok then
+    open_configure(config_status.message, config_status.draft)
+    return
+  end
   local preserve_result_if_selection_invalid = options.preserve_result_if_selection_invalid == true
   local previous_result = state.result
   local previous_screen = state.screen
@@ -412,7 +517,7 @@ local function start_analysis(options)
       predictions = {},
       highlights = {},
       warnings = {},
-      model_status = { name = "Cnn14", source = "managed-runtime" },
+      model_status = { name = "Cnn14", source = "configured python" },
       item = export_metadata or {},
       error = { code = "export_failed", message = err },
     })
@@ -437,14 +542,23 @@ local function start_analysis(options)
 end
 
 local function ensure_started()
-  if not runtime_client.runtime_ready(paths) then
-    state.screen = "setup"
-    state.last_error = "Bundled runtime is not set up yet."
+  if state.screen ~= "boot" then
     return
   end
-  if state.screen == "boot" then
-    start_analysis()
+
+  if state.intent == "configure" then
+    local draft, message = configure_runtime.prefill_draft(paths)
+    open_configure(start_message or message, draft)
+    return
   end
+
+  local config_status = configure_runtime.saved_config_status(paths)
+  if not config_status.ok then
+    open_configure(config_status.message, config_status.draft)
+    return
+  end
+
+  start_analysis()
 end
 
 local function render_header()
@@ -458,29 +572,126 @@ local function render_header()
   ImGui.Separator(ctx)
 end
 
-local function render_setup()
+local function render_path_row(label, path_value, status, browse_label, browse_fn)
+  local changed_any = false
+  ImGui.Text(ctx, label)
+  local changed, new_value = ImGui.InputText(ctx, "##" .. label, path_value or "")
+  if changed then
+    path_value = new_value
+    changed_any = true
+  end
+  ImGui.SameLine(ctx)
+  if ImGui.Button(ctx, browse_label) then
+    local selected = browse_fn(path_value)
+    if selected and selected ~= "" then
+      path_value = selected
+      changed_any = true
+    end
+  end
+  if status and status.message then
+    ImGui.TextColored(ctx, badge_color(status.ok and "success" or "warning"), status.message)
+  end
+  return path_value, changed_any
+end
+
+local function choose_file(initial_path, prompt, extension_hint)
+  if not reaper.GetUserFileNameForRead then
+    return nil
+  end
+  local ok, selected = reaper.GetUserFileNameForRead(initial_path or "", prompt, extension_hint or "")
+  if ok then
+    return selected
+  end
+  return nil
+end
+
+local function render_configure()
+  ensure_configure_ready()
   telemetry_counter("tags_total", 0)
   telemetry_counter("visible_tags", 0)
   telemetry_label("focused_tag", state.focused_tag or "none")
-  render_image_label("details", "One quick setup.", badge_color("accent"), 16)
+  render_image_label("details", "Configure Python 3.11 and the PANNs model path.", badge_color("accent"), 16)
   if state.last_error then
     ImGui.Spacing(ctx)
     ImGui.TextColored(ctx, badge_color("warning"), tostring(state.last_error))
   end
+  if state.configure.message then
+    ImGui.Spacing(ctx)
+    ImGui.TextWrapped(ctx, tostring(state.configure.message))
+  end
   ImGui.Spacing(ctx)
-  if ImGui.Button(ctx, "Setup") then
-    local ok, err = runtime_client.run_setup(paths, {
-      interactive = true,
-    })
-    if not ok then
-      state.last_error = err
-    else
-      state.last_error = "Setup finished. Hit Retry if the report does not start automatically."
+  local validation = state.configure.validation or {
+    runtime = {
+      ok = path_utils.directory_exists(paths.runtime_source_root),
+      message = path_utils.directory_exists(paths.runtime_source_root)
+          and "Shipped runtime source is present."
+          or "The shipped runtime source is missing from this installed package.",
+    },
+    python = { ok = false, message = "Choose a Python 3.11 executable." },
+    model = { ok = false, message = "Choose the PANNs checkpoint file." },
+  }
+  ImGui.TextColored(
+    ctx,
+    badge_color(validation.runtime.ok and "success" or "warning"),
+    validation.runtime.message
+  )
+  ImGui.Spacing(ctx)
+  local updated_python_path, python_changed = render_path_row(
+    "Python executable",
+    state.configure.python_path,
+    validation.python,
+    "Browse Python",
+    function(current)
+      return choose_file(current, "Choose Python 3.11 executable", "")
     end
+  )
+  state.configure.python_path = updated_python_path
+  ImGui.Spacing(ctx)
+  local updated_model_path, model_changed = render_path_row(
+    "Model file",
+    state.configure.model_path,
+    validation.model,
+    "Browse Model",
+    function(current)
+      return choose_file(current, "Choose Cnn14 model file", "pth")
+    end
+  )
+  state.configure.model_path = updated_model_path
+  if python_changed or model_changed then
+    state.configure.validation = nil
+    state.configure.message = nil
+  end
+  ImGui.Spacing(ctx)
+  ImGui.TextDisabled(ctx, "Runtime source")
+  ImGui.TextWrapped(ctx, paths.runtime_source_root)
+  ImGui.TextDisabled(ctx, "Config file")
+  ImGui.TextWrapped(ctx, paths.config_path)
+  ImGui.TextDisabled(ctx, "Data directory")
+  ImGui.TextWrapped(ctx, paths.data_dir)
+  ImGui.Spacing(ctx)
+  ImGui.TextWrapped(
+    ctx,
+    string.format(
+      "Expected model: %s (%d bytes, sha256 %s)",
+      configure_runtime.MODEL_FILENAME,
+      configure_runtime.MODEL_SIZE_BYTES,
+      configure_runtime.MODEL_SHA256
+    )
+  )
+  ImGui.Spacing(ctx)
+  if ImGui.Button(ctx, "Validate") then
+    validate_configure()
   end
   ImGui.SameLine(ctx)
-  if ImGui.Button(ctx, "Retry") then
-    if runtime_client.runtime_ready(paths) then
+  if ImGui.Button(ctx, "Save") then
+    save_configuration()
+  end
+  ImGui.SameLine(ctx)
+  if ImGui.Button(ctx, "Save and Run") then
+    local ok = save_configuration()
+    if ok then
+      state.notice = nil
+      state.current_view = "compact"
       state.screen = "boot"
       start_analysis()
     end
@@ -497,8 +708,7 @@ local function finalize_export_success(export_payload)
   if not job then
     clear_temp_audio()
     state.job = nil
-    state.screen = "setup"
-    state.last_error = job_err
+    open_configure(job_err)
     telemetry_event("runtime_start_failed")
     return
   end
@@ -544,7 +754,7 @@ local function render_exporting()
       predictions = {},
       highlights = {},
       warnings = {},
-      model_status = { name = "Cnn14", source = "managed-runtime" },
+      model_status = { name = "Cnn14", source = "configured python" },
       item = stepped.diagnostics or {},
       error = { code = "export_failed", message = stepped.error or "Preparing the selected audio failed." },
     })
@@ -874,7 +1084,7 @@ local function render_result()
     end
     if vm.model_status.name or vm.model_status.source then
       ImGui.Spacing(ctx)
-      ImGui.TextWrapped(ctx, string.format("%s • %s", tostring(vm.model_status.name or "Cnn14"), tostring(vm.model_status.source or "managed runtime")))
+      ImGui.TextWrapped(ctx, string.format("%s • %s", tostring(vm.model_status.name or "Cnn14"), tostring(vm.model_status.source or "configured python")))
     end
     ImGui.Spacing(ctx)
     ImGui.TextDisabled(ctx, "Clip tags only, not events.")
@@ -904,15 +1114,9 @@ local function render_error()
     return
   end
   ImGui.SameLine(ctx)
-  if ImGui.Button(ctx, "Setup") then
-    local ok, err = runtime_client.run_setup(paths, {
-      interactive = true,
-    })
-    if not ok then
-      state.last_error = err
-    else
-      state.last_error = "Setup finished. Retry the analysis."
-    end
+  if ImGui.Button(ctx, "Configure") then
+    local draft, message = configure_runtime.prefill_draft(paths)
+    open_configure(message, draft)
   end
 end
 
@@ -929,8 +1133,8 @@ local function loop()
     local ok, err = xpcall(function()
       measure_phase("render_content", function()
         measure_phase("render_header", render_header)
-        if state.screen == "setup" then
-          measure_phase("render_setup", render_setup)
+        if state.screen == "configure" then
+          measure_phase("render_configure", render_configure)
         elseif state.screen == "exporting" then
           measure_phase("render_exporting", render_exporting)
         elseif state.screen == "loading" then

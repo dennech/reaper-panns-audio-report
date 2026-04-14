@@ -1,68 +1,78 @@
 # Troubleshooting
 
-## ReaImGui is missing
+## `ReaImGui` is missing
 
 - Open `Extensions -> ReaPack -> Browse Packages...`.
-- Install `ReaImGui: ReaScript binding for Dear ImGui`.
-- Restart REAPER.
-- Run `REAPER Audio Tag: Setup` again.
+- Search for `ReaImGui: ReaScript binding for Dear ImGui`.
+- Install it and restart REAPER.
 
-## `REAPER Audio Tag: Setup` is missing from the Actions list
+## `REAPER Audio Tag: Configure` is missing from the Actions list
 
-- If you installed through ReaPack, make sure the `REAPER Audio Tag` package is installed.
-- If you used the manual installer ZIP, run `Install.command` again.
-- Refresh or reopen the Actions list.
-- If needed, load `Scripts/reaper/REAPER Audio Tag - Setup.lua` manually.
+- Confirm that the `REAPER Audio Tag` package is installed through this repo's ReaPack URL.
+- If needed, re-import:
 
-## Setup fails to download the bundled runtime
+  `https://raw.githubusercontent.com/dennech/reaper-audio-tag/main/index.xml`
 
-- Check your internet connection.
-- Open the [GitHub Releases page](https://github.com/dennech/reaper-audio-tag/releases/latest) and confirm the release assets are available.
-- Run `REAPER Audio Tag: Setup` again.
-- If the release asset was partially downloaded, delete `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/setup` and rerun Setup.
+- Reinstall the package from ReaPack and rescan the Actions list.
 
-## Setup reports a checksum mismatch
+## `Configure` says Python 3.11 was not found
 
-- Delete `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/setup`.
-- Run `REAPER Audio Tag: Setup` again.
-- If the mismatch persists, check whether a proxy, mirror, or antivirus tool is rewriting downloaded archives.
+- Verify the path in Terminal:
 
-## The report says Setup must be run first
+```bash
+"/path/to/python" --version
+```
 
-- Run `REAPER Audio Tag: Setup`.
-- Confirm that `config.json` exists in `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/`.
-- Confirm that the bundled runtime exists under `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime`.
+- Use the Python inside your local venv, not a random system binary.
+- If needed, recreate the venv with `python3.11 -m venv ...`.
 
-## The runtime falls back to CPU
+## `Configure` says dependencies are missing
 
-- On Apple Silicon, this is expected when `MPS` is unavailable or unstable.
-- The runtime intentionally prefers a safe fallback over a crash.
+- Activate the same environment that you selected in `Configure`.
+- Reinstall the pinned dependencies:
 
-## The selected item is rejected
+```bash
+python -m pip install \
+  "numpy>=1.26,<2.0" \
+  "soundfile>=0.12,<1.0" \
+  "torch==2.6.0" \
+  "torchaudio==2.6.0" \
+  "torchlibrosa==0.1.0"
+```
 
-- Make sure exactly one item is selected.
-- Make sure the active take is audio, not MIDI.
-- If a report window is already open, keep it open, select the next item, and click `Another`.
+## `Configure` rejects the model file
 
-## REAPER becomes sluggish when the report opens
+- Confirm the file name is exactly `Cnn14_mAP=0.431.pth`.
+- Confirm the checksum:
 
-- Make sure you are on the latest version of the script and rerun the action.
-- The report now prepares export audio incrementally before runtime inference starts.
-- If responsiveness still drops, note whether the slowdown happens during `Preparing audio...`, during `Listening...`, or only after the final report appears.
+```bash
+shasum -a 256 /path/to/Cnn14_mAP=0.431.pth
+```
 
-## The compact view does not show the colorful icons
+- Expected value:
 
-- The current build uses bundled Noto Emoji PNG assets instead of system emoji.
-- If the compact chips show text without icons, the image decode or render path is unavailable in that REAPER session.
-- Analysis quality is unaffected; this is only a presentation fallback.
+  `0dc499e40e9761ef5ea061ffc77697697f277f6a960894903df3ada000e34b31`
 
-## I want export diagnostics without running the model
+## The main action keeps opening `Configure`
 
-- Run `reaper/REAPER Audio Tag - Debug Export.lua`.
-- It exports the selected take range, writes a diagnostics log, and stops before the Python runtime step.
+- Save a new configuration from `REAPER Audio Tag: Configure`.
+- Make sure the Python path still exists and is executable.
+- Make sure the model file still exists at the saved location.
+- If you previously used the bundled-runtime flow, resave the config in the new transparent format.
 
-## I am a developer and still want the old source-checkout bootstrap flow
+## The first run is slow
 
-- Use `scripts/bootstrap.command`.
-- `bootstrap.command` is now a development and recovery path only.
-- Public installs should use ReaPack or the manual installer ZIP plus `REAPER Audio Tag: Setup`.
+- That is expected on the first run.
+- `torch` import and model loading can take noticeable time.
+
+## Where the project stores its own data
+
+- `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/config.json`
+- `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/jobs`
+- `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/tmp`
+- `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/logs`
+
+## Developer and recovery note
+
+- `scripts/bootstrap.command` still exists for source checkouts and recovery.
+- It is not part of the normal public install flow.

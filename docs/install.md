@@ -6,16 +6,16 @@
 
 1. Install REAPER `7.x`.
 2. Open REAPER and check whether `Extensions -> ReaPack -> Browse Packages...` exists.
-3. If that menu is missing:
+3. If it is missing:
    - download ReaPack from [reapack.com](https://reapack.com/)
    - in REAPER, open `Options -> Show REAPER resource path in Finder`
    - place the downloaded ReaPack file into the `UserPlugins` folder there
    - restart REAPER
 
-### 2. Import the REAPER Audio Tag repository into ReaPack
+### 2. Import this project's ReaPack repository
 
 1. In REAPER, open `Extensions -> ReaPack -> Import repositories...`.
-2. Add this repository URL:
+2. Add:
 
    `https://raw.githubusercontent.com/dennech/reaper-audio-tag/main/index.xml`
 
@@ -29,61 +29,99 @@
 2. Install it.
 3. Restart REAPER.
 
-If `ReaImGui` is still missing later, `REAPER Audio Tag: Setup` and the main action both point you back to the same ReaPack package search.
+### 4. Install Python 3.11
 
-### 4. Run the Setup action
+Install Python `3.11` separately.
 
-1. Open the Actions list in REAPER.
-2. Search for `REAPER Audio Tag: Setup`.
-3. Run it once.
-4. Wait until Setup finishes.
+Recommended:
 
-Setup automatically:
+- the official macOS installer from python.org
 
-- downloads the version-pinned bundled runtime from the matching GitHub release
-- verifies the downloaded bundle checksum
-- installs the bundled Python runtime and packaged dependencies into the REAPER data directory
-- installs the pinned `Cnn14_mAP=0.431.pth` checkpoint
-- writes `config.json` into `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/`
+Then confirm in Terminal:
 
-You do not need to install Python separately and you do not manually fetch the PANNs model in the normal user flow.
+```bash
+python3.11 --version
+```
 
-### 5. Run the report
+### 5. Create a local venv and install Python dependencies
 
-1. Select exactly one audio item in REAPER.
-2. Search for `REAPER Audio Tag` in the Actions list.
-3. Run it.
+Recommended target:
 
-## Manual fallback
+```text
+~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv
+```
 
-If you do not want to install through ReaPack:
+Manual transparent path:
 
-1. Open the [GitHub Releases page](https://github.com/dennech/reaper-audio-tag/releases/latest).
-2. Download the installer ZIP for your Mac architecture.
-3. Run `Install.command`.
-4. Open REAPER.
-5. Run `REAPER Audio Tag: Setup`.
-6. Run `REAPER Audio Tag`.
+```bash
+mkdir -p "$HOME/Library/Application Support/REAPER/Data/reaper-panns-item-report"
+python3.11 -m venv "$HOME/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv"
+source "$HOME/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/activate"
+python -m pip install --upgrade pip
+python -m pip install \
+  "numpy>=1.26,<2.0" \
+  "soundfile>=0.12,<1.0" \
+  "torch==2.6.0" \
+  "torchaudio==2.6.0" \
+  "torchlibrosa==0.1.0"
+```
 
-This fallback still uses the same bundled runtime and the same Setup action. It only changes how the Lua scripts are copied into REAPER.
+Optional helper for source checkouts or manual repository downloads:
+
+```bash
+./scripts/setup_runtime_macos.sh
+```
+
+That helper is optional convenience only. It runs in Terminal, not in REAPER, and does not download the model.
+
+### 6. Download the model manually
+
+Required model:
+
+- file: `Cnn14_mAP=0.431.pth`
+- size: about `327 MB`
+- sha256: `0dc499e40e9761ef5ea061ffc77697697f277f6a960894903df3ada000e34b31`
+
+Recommended source:
+
+- [Zenodo checkpoint download](https://zenodo.org/records/3987831/files/Cnn14_mAP%3D0.431.pth)
+
+Verify the checksum:
+
+```bash
+shasum -a 256 /path/to/Cnn14_mAP=0.431.pth
+```
+
+### 7. Run Configure inside REAPER
+
+1. Open the Actions list.
+2. Run `REAPER Audio Tag: Configure`.
+3. Set:
+   - Python executable
+   - model file
+4. Click `Validate`.
+5. Click `Save`.
+
+### 8. Run the report
+
+1. Select exactly one audio item.
+2. Run `REAPER Audio Tag`.
+
+If the configuration is missing or invalid, the main action opens `Configure`.
+
+## Notes
+
+- `FFmpeg` is not required for the current version.
+- REAPER does not install Python for you.
+- REAPER does not download the model for you.
+- This project currently uses its own ReaPack repository URL directly.
 
 ## Developer setup
 
-Developers can still use the source checkout flow:
+Source checkout workflows can still use:
 
-1. Clone the repository.
-2. Run `scripts/bootstrap.command`.
-3. Add `reaper/REAPER Audio Tag.lua` to the REAPER Actions list.
+1. `git clone`
+2. `scripts/bootstrap.command`
+3. manually loading `reaper/REAPER Audio Tag.lua`
 
-`bootstrap.command` remains the development and recovery path. It is no longer the recommended public install entrypoint.
-
-## Where runtime data is stored
-
-- Config: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/config.json`
-- Bundled runtime: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime`
-- Bundled model: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/models`
-- Jobs: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/jobs`
-- Export temp WAVs: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/tmp`
-- Export logs: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/logs`
-
-Developer checkouts can still prefer `<repo>/.local-models` when `bootstrap.command` is run from a writable source tree.
+That remains developer and recovery tooling only, not the main public install path.

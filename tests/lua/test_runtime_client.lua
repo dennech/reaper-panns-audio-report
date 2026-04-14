@@ -18,28 +18,36 @@ local function write_json(path, payload)
   handle:close()
 end
 
-function tests.test_start_job_uses_managed_python_and_ignores_config_executable()
+function tests.test_start_job_uses_configured_python_and_shipped_source()
   local original_reaper = _G.reaper
   local temp_root = mktemp_dir()
   local captured = {}
 
-  local managed_python = path_utils.join(temp_root, 'runtime', 'venv', 'bin', 'python')
-  os.execute('mkdir -p ' .. path_utils.sh_quote(path_utils.dirname(managed_python)))
-  local python_handle = assert(io.open(managed_python, 'wb'))
+  local configured_python = path_utils.join(temp_root, 'venv', 'bin', 'python')
+  local runtime_source_root = path_utils.join(temp_root, 'runtime', 'src')
+  local model_path = path_utils.join(temp_root, 'models', 'Cnn14_mAP=0.431.pth')
+  os.execute('mkdir -p ' .. path_utils.sh_quote(path_utils.dirname(configured_python)))
+  os.execute('mkdir -p ' .. path_utils.sh_quote(runtime_source_root))
+  os.execute('mkdir -p ' .. path_utils.sh_quote(path_utils.dirname(model_path)))
+  local python_handle = assert(io.open(configured_python, 'wb'))
   python_handle:write('#!/usr/bin/env python3\n')
   python_handle:close()
+  local model_handle = assert(io.open(model_path, 'wb'))
+  model_handle:write('model\n')
+  model_handle:close()
 
   local config_path = path_utils.join(temp_root, 'config.json')
   write_json(config_path, {
-    schema_version = 'reaper-panns-item-report/v1',
-    python_executable = '/tmp/evil-python',
+    schema_version = 'reaper-audio-tag/config/v1',
+    python = {
+      path = configured_python,
+    },
     model = {
       name = 'Cnn14',
-      path = '/tmp/model.pth',
+      path = model_path,
     },
     runtime = {
       preferred_backend = 'cpu',
-      cpu_threads = 2,
     },
   })
 
@@ -63,8 +71,9 @@ function tests.test_start_job_uses_managed_python_and_ignores_config_executable(
   local job, err = runtime_client.start_job(
     {
       config_path = config_path,
-      python_path = managed_python,
+      runtime_source_root = runtime_source_root,
       jobs_dir = path_utils.join(temp_root, 'jobs'),
+      resource_dir = path_utils.join(temp_root, 'REAPER'),
       os_name = 'OSX64',
     },
     {
@@ -84,11 +93,13 @@ function tests.test_start_job_uses_managed_python_and_ignores_config_executable(
 
   luaunit.assertEquals(err, nil)
   luaunit.assertEquals(job ~= nil, true)
-  luaunit.assertStrContains(captured.command, path_utils.sh_quote(managed_python))
-  luaunit.assertStrContains(captured.command, "--log-file")
-  luaunit.assertEquals(string.find(captured.command, "/bin/sh -lc", 1, true), nil)
-  luaunit.assertEquals(string.find(captured.command, ">", 1, true), nil)
-  luaunit.assertEquals(string.find(captured.command, '/tmp/evil-python', 1, true), nil)
+  luaunit.assertStrContains(captured.command, 'PYTHONPATH=' .. path_utils.sh_quote(runtime_source_root))
+  luaunit.assertStrContains(captured.command, path_utils.sh_quote(configured_python))
+  luaunit.assertStrContains(captured.command, 'REAPER_RESOURCE_PATH=' .. path_utils.sh_quote(path_utils.join(temp_root, 'REAPER')))
+  luaunit.assertStrContains(captured.command, '--log-file')
+  luaunit.assertEquals(string.find(captured.command, '/bin/sh -lc', 1, true), nil)
+  luaunit.assertEquals(string.find(captured.command, '>', 1, true), nil)
+  luaunit.assertEquals(string.find(captured.command, '/tmp/evil-model.pth', 1, true), nil)
   luaunit.assertEquals(job.timeout_sec, 12)
 
   local request_text = assert(path_utils.read_file(job.request_file))
@@ -101,22 +112,31 @@ function tests.test_start_job_scales_timeout_for_long_items()
   local original_reaper = _G.reaper
   local temp_root = mktemp_dir()
 
-  local managed_python = path_utils.join(temp_root, 'runtime', 'venv', 'bin', 'python')
-  os.execute('mkdir -p ' .. path_utils.sh_quote(path_utils.dirname(managed_python)))
-  local python_handle = assert(io.open(managed_python, 'wb'))
+  local configured_python = path_utils.join(temp_root, 'venv', 'bin', 'python')
+  local runtime_source_root = path_utils.join(temp_root, 'runtime', 'src')
+  local model_path = path_utils.join(temp_root, 'models', 'Cnn14_mAP=0.431.pth')
+  os.execute('mkdir -p ' .. path_utils.sh_quote(path_utils.dirname(configured_python)))
+  os.execute('mkdir -p ' .. path_utils.sh_quote(runtime_source_root))
+  os.execute('mkdir -p ' .. path_utils.sh_quote(path_utils.dirname(model_path)))
+  local python_handle = assert(io.open(configured_python, 'wb'))
   python_handle:write('#!/usr/bin/env python3\n')
   python_handle:close()
+  local model_handle = assert(io.open(model_path, 'wb'))
+  model_handle:write('model\n')
+  model_handle:close()
 
   local config_path = path_utils.join(temp_root, 'config.json')
   write_json(config_path, {
-    schema_version = 'reaper-panns-item-report/v1',
+    schema_version = 'reaper-audio-tag/config/v1',
+    python = {
+      path = configured_python,
+    },
     model = {
       name = 'Cnn14',
-      path = '/tmp/model.pth',
+      path = model_path,
     },
     runtime = {
       preferred_backend = 'cpu',
-      cpu_threads = 2,
     },
   })
 
@@ -138,8 +158,9 @@ function tests.test_start_job_scales_timeout_for_long_items()
   local job, err = runtime_client.start_job(
     {
       config_path = config_path,
-      python_path = managed_python,
+      runtime_source_root = runtime_source_root,
       jobs_dir = path_utils.join(temp_root, 'jobs'),
+      resource_dir = path_utils.join(temp_root, 'REAPER'),
       os_name = 'OSX64',
     },
     {
@@ -161,6 +182,38 @@ function tests.test_start_job_scales_timeout_for_long_items()
   luaunit.assertEquals(job.timeout_sec > 45, true)
   luaunit.assertEquals(job.request_payload.timeout_sec, job.timeout_sec)
 
+  os.execute('rm -rf ' .. path_utils.sh_quote(temp_root))
+end
+
+function tests.test_start_job_requires_configured_python_and_model_files()
+  local temp_root = mktemp_dir()
+  local config_path = path_utils.join(temp_root, 'config.json')
+
+  write_json(config_path, {
+    schema_version = 'reaper-audio-tag/config/v1',
+    python = { path = '/tmp/missing-python' },
+    model = { name = 'Cnn14', path = '/tmp/missing-model' },
+  })
+
+  local job, err = runtime_client.start_job(
+    {
+      config_path = config_path,
+      runtime_source_root = path_utils.join(temp_root, 'runtime', 'src'),
+      jobs_dir = path_utils.join(temp_root, 'jobs'),
+      resource_dir = path_utils.join(temp_root, 'REAPER'),
+      os_name = 'OSX64',
+    },
+    {
+      temp_audio_path = '/tmp/item.wav',
+      item_metadata = {
+        item_name = 'Broken config',
+      },
+    },
+    {}
+  )
+
+  luaunit.assertEquals(job, nil)
+  luaunit.assertStrContains(err, 'Configured Python 3.11 executable was not found')
   os.execute('rm -rf ' .. path_utils.sh_quote(temp_root))
 end
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- Replaced the public in-REAPER installer flow with a transparent manual macOS setup flow centered on `REAPER Audio Tag: Configure`.
+- Added explicit Python-path and model-path validation inside REAPER, including Python `3.11` checks, required-import checks, model filename checks, and model checksum verification.
+- Switched the Lua side to run the shipped Python runtime source via the configured Python executable and `PYTHONPATH`, instead of relying on release-manifest downloads or bundled runtime installation.
+- Added an optional Terminal-only helper script `scripts/setup_runtime_macos.sh` for creating a venv and installing the pinned Python dependencies without hiding those steps inside REAPER.
+- Reworked the ReaPack package metadata so it ships the project Python source tree as plain files, added `REAPER Audio Tag - Configure.lua`, and turned the old setup entrypoint into a deprecated compatibility stub that only redirects to Configure.
+- Rewrote the English and Russian README/install/troubleshooting docs around the new trust model: manual Python install, manual dependency install, manual model download, and no hidden network activity in the normal public flow.
+
 ## 0.2.0
 
 - Added a ReaPack-first distribution layer with repo-tracked `.reapack-index.conf`, generated `index.xml`, and ReaPack package metadata on the main Lua action.

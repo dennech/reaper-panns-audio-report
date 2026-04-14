@@ -10,7 +10,6 @@ This directory contains the Python runtime package used by the REAPER action.
 
 ## Responsibilities
 
-- model download + checksum verification
 - runtime config for the REAPER user data directory
 - backend probing with `MPS -> CPU` fallback
 - PANNs `Cnn14` loading
@@ -20,7 +19,7 @@ This directory contains the Python runtime package used by the REAPER action.
 ## Notes
 
 - The runtime package lives under `runtime/src/reaper_panns_runtime`.
-- In a normal writable checkout, bootstrap prefers a repo-local cache under `.local-models/` for the large checkpoint and keeps it out of Git.
-- If the repo-local cache is unavailable, bootstrap falls back to the REAPER data directory model cache.
+- Public users are expected to install Python, third-party dependencies, and the model file explicitly, then point `REAPER Audio Tag: Configure` at those paths.
+- Development and recovery tooling can still use `bootstrap` and `.local-models/` for local checkouts.
 - The fake model path exists to keep tests and contract validation lightweight.
 - `scripts/bootstrap_runtime.sh` installs a regular packaged runtime by default; use `--dev` for an editable development install.

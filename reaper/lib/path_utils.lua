@@ -2,6 +2,20 @@ local M = {}
 
 local sep = package.config:sub(1, 1)
 
+local function expand_user_path(path)
+  local text = tostring(path or "")
+  if text == "~" then
+    return os.getenv("HOME") or text
+  end
+  if text:sub(1, 2) == "~/" then
+    local home = os.getenv("HOME")
+    if home and home ~= "" then
+      return home .. text:sub(2)
+    end
+  end
+  return text
+end
+
 local function shell_read(command)
   local handle = io.popen(command)
   if not handle then
@@ -77,6 +91,10 @@ function M.normalize(path)
   return text
 end
 
+function M.expand_user(path)
+  return expand_user_path(path)
+end
+
 function M.is_subpath(path, root)
   local normalized_path = M.normalize(path)
   local normalized_root = M.normalize(root)
@@ -87,12 +105,12 @@ function M.is_subpath(path, root)
 end
 
 function M.directory_exists(path)
-  local quoted = M.sh_quote(path)
+  local quoted = M.sh_quote(expand_user_path(path))
   return shell_read("[ -d " .. quoted .. " ] && printf yes") == "yes"
 end
 
 function M.exists(path)
-  local handle = io.open(path, "rb")
+  local handle = io.open(expand_user_path(path), "rb")
   if handle then
     handle:close()
     return true
@@ -101,7 +119,7 @@ function M.exists(path)
 end
 
 function M.read_file(path)
-  local handle, err = io.open(path, "rb")
+  local handle, err = io.open(expand_user_path(path), "rb")
   if not handle then
     return nil, err
   end
@@ -111,7 +129,7 @@ function M.read_file(path)
 end
 
 function M.write_file(path, data)
-  local handle, err = io.open(path, "wb")
+  local handle, err = io.open(expand_user_path(path), "wb")
   if not handle then
     return nil, err
   end
@@ -130,6 +148,11 @@ function M.capture_command(command)
     return nil, code, output
   end
   return output
+end
+
+function M.is_executable(path)
+  local quoted = M.sh_quote(expand_user_path(path))
+  return shell_read("[ -x " .. quoted .. " ] && printf yes") == "yes"
 end
 
 function M.run_command(command)
@@ -205,10 +228,23 @@ function M.mtime(path)
     return nil
   end
 
-  local quoted = M.sh_quote(path)
+  local quoted = M.sh_quote(expand_user_path(path))
   local value = shell_read("stat -f %m " .. quoted .. " 2>/dev/null")
   if not value or value == "" then
     value = shell_read("stat -c %Y " .. quoted .. " 2>/dev/null")
+  end
+  return tonumber(value)
+end
+
+function M.file_size(path)
+  if not M.exists(path) then
+    return nil
+  end
+
+  local quoted = M.sh_quote(expand_user_path(path))
+  local value = shell_read("stat -f %z " .. quoted .. " 2>/dev/null")
+  if not value or value == "" then
+    value = shell_read("stat -c %s " .. quoted .. " 2>/dev/null")
   end
   return tonumber(value)
 end

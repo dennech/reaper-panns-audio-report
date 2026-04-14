@@ -63,7 +63,7 @@ def test_validate_response_accepts_ok_result() -> None:
             }
         ],
         "warnings": [],
-        "model_status": {"name": "Cnn14", "source": "managed-runtime"},
+        "model_status": {"name": "Cnn14", "source": "configured python"},
         "item": {"item_name": "Item 1"},
         "error": None,
     }

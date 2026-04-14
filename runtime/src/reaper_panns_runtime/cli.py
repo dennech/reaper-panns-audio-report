@@ -36,6 +36,17 @@ def _configured_model_path(config: dict[str, Any]) -> Path:
     return Path(config["model"]["path"])
 
 
+def _preferred_backend(config: dict[str, Any], requested_backend: str) -> str:
+    if requested_backend and requested_backend != "auto":
+        return requested_backend
+    runtime = config.get("runtime")
+    if isinstance(runtime, dict):
+        configured = runtime.get("preferred_backend")
+        if configured in {"auto", "mps", "cpu"}:
+            return configured
+    return "auto"
+
+
 def _log_line(log_file: Path | None, message: str) -> None:
     if log_file is None:
         return
@@ -66,16 +77,16 @@ def _analyze(args: argparse.Namespace) -> int:
 
     paths = default_paths()
     requested_backend = request.get("requested_backend") or "auto"
-    default_model_status = {"name": "Cnn14", "source": "managed-runtime"}
+    default_model_status = {"name": "Cnn14", "source": "configured python"}
     _log_line(log_file, f"Validated request. requested_backend={requested_backend}")
 
     try:
         config = load_config(paths)
     except FileNotFoundError:
-        _log_line(log_file, "Runtime config is missing. REAPER Audio Tag: Setup must be run first.")
+        _log_line(log_file, "Runtime config is missing. REAPER Audio Tag: Configure must be run first.")
         payload = error_response(
-            "Runtime is not configured yet. Run REAPER Audio Tag: Setup first.",
-            code="runtime_not_bootstrapped",
+            "Runtime is not configured yet. Run REAPER Audio Tag: Configure first.",
+            code="runtime_not_configured",
             backend="cpu",
             attempted_backends=backend_candidates(requested_backend),
             model_status=default_model_status,
@@ -89,15 +100,15 @@ def _analyze(args: argparse.Namespace) -> int:
 
     audio_path = Path(request["temp_audio_path"])
     model_path = _configured_model_path(config)
-    requested_backend = request.get("requested_backend") or config["runtime"]["preferred_backend"]
+    requested_backend = _preferred_backend(config, request.get("requested_backend") or "auto")
     model_status = {
-        "name": config["model"]["name"],
-        "source": "managed-runtime",
+        "name": config.get("model", {}).get("name", "Cnn14"),
+        "source": "configured python",
     }
     _log_line(
         log_file,
         (
-            f"Resolved managed runtime. backend_strategy={requested_backend} "
+            f"Resolved configured runtime. backend_strategy={requested_backend} "
             f"audio={audio_path.name} item_length={request['item_metadata'].get('item_length', 'n/a')}"
         ),
     )

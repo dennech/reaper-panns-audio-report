@@ -1,6 +1,5 @@
 local json = require("json")
 local path_utils = require("path_utils")
-local setup_runtime = require("setup_runtime")
 
 local M = {}
 
@@ -29,16 +28,25 @@ end
 
 function M.load_config(paths)
   if not path_utils.exists(paths.config_path) then
-    return nil, "Runtime config was not found. Run REAPER Audio Tag: Setup first."
+    return nil, "Runtime config was not found. Run REAPER Audio Tag: Configure first."
   end
-  return read_json(paths.config_path)
+  local payload = read_json(paths.config_path)
+  if type(payload) ~= "table" then
+    return nil, "Runtime config is malformed. Reopen Configure and save it again."
+  end
+  return payload
 end
 
 function M.runtime_ready(paths)
-  if not path_utils.exists(paths.config_path) then
+  local config = M.load_config(paths)
+  if not config then
     return false
   end
-  return path_utils.exists(paths.python_path)
+  local python_path = config.python and config.python.path or nil
+  if not python_path or python_path == "" then
+    return false
+  end
+  return path_utils.exists(python_path)
 end
 
 function M.open_bootstrap(paths)
@@ -53,10 +61,6 @@ function M.open_bootstrap(paths)
   end
   reaper.ExecProcess(command, -2)
   return true
-end
-
-function M.run_setup(paths, options, deps)
-  return setup_runtime.run(paths, options, deps)
 end
 
 local function write_request(path, payload)
@@ -100,7 +104,7 @@ local function error_payload(job, code, message, backend, warnings, elapsed_ms)
     warnings = warnings or {},
     model_status = {
       name = "Cnn14",
-      source = "managed-runtime",
+      source = "configured python",
     },
     item = job and job.request_payload and job.request_payload.item_metadata or {},
     error = {
@@ -121,8 +125,23 @@ function M.start_job(paths, item_payload, options)
   end
 
   local python_path = paths.python_path
+  if type(config.python) ~= "table" or type(config.python.path) ~= "string" or config.python.path == "" then
+    return nil, "Runtime config is missing the Python path. Run REAPER Audio Tag: Configure again."
+  end
+  if type(config.model) ~= "table" or type(config.model.path) ~= "string" or config.model.path == "" then
+    return nil, "Runtime config is missing the model path. Run REAPER Audio Tag: Configure again."
+  end
+
+  local python_path = path_utils.expand_user(config.python.path)
+  local model_path = path_utils.expand_user(config.model.path)
   if not path_utils.exists(python_path) then
-    return nil, "Configured bundled runtime was not found. Run REAPER Audio Tag: Setup again."
+    return nil, "Configured Python 3.11 executable was not found. Run REAPER Audio Tag: Configure again."
+  end
+  if not path_utils.exists(model_path) then
+    return nil, "Configured model file was not found. Run REAPER Audio Tag: Configure again."
+  end
+  if not path_utils.directory_exists(paths.runtime_source_root) then
+    return nil, "The shipped runtime source is missing from the installed package."
   end
 
   path_utils.ensure_dir(paths.jobs_dir)
@@ -146,6 +165,9 @@ function M.start_job(paths, item_payload, options)
   write_request(request_file, request_payload)
 
   local command = table.concat({
+    "env",
+    "REAPER_RESOURCE_PATH=" .. path_utils.sh_quote(paths.resource_dir),
+    "PYTHONPATH=" .. path_utils.sh_quote(paths.runtime_source_root),
     path_utils.sh_quote(python_path),
     "-m",
     "reaper_panns_runtime",

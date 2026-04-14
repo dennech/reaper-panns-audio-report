@@ -181,7 +181,7 @@ function M.detail_report(result)
   end
 
   if next(vm.model_status) then
-    append(lines, string.format("Model: %s • %s", vm.model_status.name or "Cnn14", vm.model_status.source or "managed runtime"))
+    append(lines, string.format("Model: %s • %s", vm.model_status.name or "Cnn14", vm.model_status.source or "configured python"))
   end
 
   if #vm.warnings > 0 then

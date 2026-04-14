@@ -107,7 +107,7 @@ def test_analyze_cli_works_with_fake_model() -> None:
         assert payload["predictions"]
         assert payload["summary"]
         assert payload["attempted_backends"] == ["fake"]
-        assert payload["model_status"]["source"] == "managed-runtime"
+        assert payload["model_status"]["source"] == "configured python"
         assert "path" not in payload["model_status"]
         validate_response(payload)
 
@@ -298,7 +298,7 @@ def test_analyze_cli_returns_normalized_error_payload() -> None:
         assert exit_code == 1
         assert payload["status"] == "error"
         assert payload["error"]["code"] == "analysis_failed"
-        assert payload["attempted_backends"] == ["mps", "cpu"]
+        assert payload["attempted_backends"] == ["cpu"]
         assert payload["summary"] == "No analysis summary is available."
         validate_response(payload)
 

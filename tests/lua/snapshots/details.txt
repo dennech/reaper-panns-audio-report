@@ -20,4 +20,4 @@ Predictions:
     1/3 seg | peak 0.09
   - [Low] Unknown texture 0.04
     1/3 seg | peak 0.06
-Model: Cnn14 • managed runtime
+Model: Cnn14 • configured python

@@ -1,16 +1,19 @@
--- @noindex
+-- @description REAPER Audio Tag: Setup (Deprecated)
+-- @version 0.3.0
+-- @author Project contributors
+-- @link https://github.com/dennech/reaper-audio-tag
 
 local _, script_path = reaper.get_action_context()
 local script_dir = script_path:match("^(.*[\\/])") or "."
-package.path = table.concat({
-  script_dir .. "lib/?.lua",
-  package.path,
-}, ";")
 
-local app_paths = require("app_paths")
-local setup_runtime = require("setup_runtime")
+if reaper and reaper.ShowMessageBox then
+  reaper.ShowMessageBox(
+    "REAPER Audio Tag: Setup is deprecated.\n\nUse REAPER Audio Tag: Configure to choose your Python 3.11 path and model file. No downloads happen inside REAPER anymore.",
+    "REAPER Audio Tag",
+    0
+  )
+end
 
-local paths = app_paths.build()
-setup_runtime.run(paths, {
-  interactive = true,
-})
+_G.REAPER_AUDIO_TAG_START_MODE = "configure"
+_G.REAPER_AUDIO_TAG_OPEN_MESSAGE = "Setup is deprecated. Choose Python 3.11 and the PANNs model path in Configure."
+dofile(script_dir .. "REAPER Audio Tag.lua")

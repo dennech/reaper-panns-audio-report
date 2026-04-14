@@ -37,7 +37,7 @@ local sample_report = {
   error = nil,
   model_status = {
     name = "Cnn14",
-    source = "managed runtime",
+    source = "configured python",
   },
 }
 
@@ -58,7 +58,7 @@ local error_report = {
   summary = "No analysis summary is available.",
   model_status = {
     name = "Cnn14",
-    source = "managed runtime",
+    source = "configured python",
   },
   error = {
     code = "missing_model",
@@ -83,7 +83,7 @@ local export_error_report = {
   summary = "No analysis summary is available.",
   model_status = {
     name = "Cnn14",
-    source = "managed runtime",
+    source = "configured python",
   },
   item = {
     item_position = 128.14783,
@@ -193,6 +193,7 @@ function tests.test_main_script_passes_ctx_to_imgui_calls()
     "SameLine",
     "Spacing",
     "Separator",
+    "InputText",
     "Image",
     "InvisibleButton",
   }
