@@ -4,7 +4,7 @@ local path_utils = require("path_utils")
 local M = {}
 
 M.CONFIG_SCHEMA = "reaper-audio-tag/config/v1"
-M.PACKAGE_VERSION = "0.3.4"
+M.PACKAGE_VERSION = "0.3.5"
 M.MODEL_FILENAME = "Cnn14_mAP=0.431.pth"
 M.MODEL_SHA256 = "0dc499e40e9761ef5ea061ffc77697697f277f6a960894903df3ada000e34b31"
 M.MODEL_SIZE_BYTES = 327428481
@@ -117,13 +117,57 @@ end
 
 local function runtime_missing_message()
   return string.format(
-    "The installed ReaPack package is incomplete. It should contain reaper/runtime/src/... Run Extensions -> ReaPack -> Synchronize packages, update REAPER Audio Tag to v%s or newer, then reopen Configure.",
+    "The installed ReaPack package is incomplete. It should install the shipped runtime into REAPER/Data/reaper-panns-item-report/runtime/src/... Run Extensions -> ReaPack -> Synchronize packages, update REAPER Audio Tag to v%s or newer, then reopen Configure.",
     M.PACKAGE_VERSION
   )
 end
 
 function M.runtime_missing_message()
   return runtime_missing_message()
+end
+
+function M.runtime_status(paths, deps)
+  deps = build_deps(deps)
+  local origin = paths.runtime_source_origin or "missing"
+  local source_root = paths.runtime_source_root
+
+  if origin == "data_app" and deps.directory_exists(source_root) then
+    return {
+      ok = true,
+      level = "success",
+      message = "Shipped runtime source is installed in REAPER/Data/reaper-panns-item-report/runtime/src.",
+      source_root = source_root,
+      origin = origin,
+    }
+  end
+
+  if origin == "data_legacy" and deps.directory_exists(source_root) then
+    return {
+      ok = true,
+      level = "warning",
+      message = "Using legacy runtime source from REAPER/Data/runtime/src. v0.3.5 will still use it, but reinstalling from this repo's ReaPack URL should move it into REAPER/Data/reaper-panns-item-report/runtime/src.",
+      source_root = source_root,
+      origin = origin,
+    }
+  end
+
+  if origin == "checkout" and deps.directory_exists(source_root) then
+    return {
+      ok = true,
+      level = "success",
+      message = "Using checkout runtime source from the local repository.",
+      source_root = source_root,
+      origin = origin,
+    }
+  end
+
+  return {
+    ok = false,
+    level = "warning",
+    message = runtime_missing_message(),
+    source_root = paths.runtime_source_expected_root or source_root,
+    origin = "missing",
+  }
 end
 
 local function repo_checkout_model_path(paths, deps)
@@ -236,6 +280,7 @@ local function python_validation_result(path_value)
   return {
     path = path_value,
     ok = false,
+    level = "warning",
     message = "Choose the python or python3.11 executable file. A local .../venv/bin/python is recommended; /opt/homebrew/bin/python3.11 also works if it has the required packages.",
     version = nil,
     version_string = nil,
@@ -247,6 +292,7 @@ local function model_validation_result(path_value)
   return {
     path = path_value,
     ok = false,
+    level = "warning",
     message = "Choose the file Cnn14_mAP=0.431.pth, not the folder that contains it.",
     filename = nil,
     sha256 = nil,
@@ -272,12 +318,13 @@ local function validate_python_path(paths, python_path, deps)
     result.message = "The selected Python path is not executable."
     return result
   end
-  if not deps.directory_exists(paths.runtime_source_root) then
-    result.message = runtime_missing_message()
+  local runtime = M.runtime_status(paths, deps)
+  if not runtime.ok then
+    result.message = runtime.message
     return result
   end
 
-  local payload, err = probe_python_environment(expanded, paths.runtime_source_root, deps)
+  local payload, err = probe_python_environment(expanded, runtime.source_root, deps)
   if not payload then
     result.message = err or "Python validation failed."
     return result
@@ -317,6 +364,7 @@ local function validate_python_path(paths, python_path, deps)
   end
 
   result.ok = true
+  result.level = "success"
   result.message = "Python 3.11 and required imports look good."
   return result
 end
@@ -352,6 +400,7 @@ local function validate_model_path(model_path, deps)
   end
 
   result.ok = true
+  result.level = "success"
   result.message = "Model filename and checksum match the expected checkpoint."
   return result
 end
@@ -361,6 +410,8 @@ function M.empty_draft(paths)
     python_path = "",
     model_path = "",
     runtime_source_root = paths.runtime_source_root,
+    runtime_source_origin = paths.runtime_source_origin,
+    runtime_source_expected_root = paths.runtime_source_expected_root,
     config_path = paths.config_path,
     data_dir = paths.data_dir,
   }
@@ -418,10 +469,11 @@ function M.saved_config_status(paths, deps)
       payload = payload,
     }
   end
-  if not deps.directory_exists(paths.runtime_source_root) then
+  local runtime = M.runtime_status(paths, deps)
+  if not runtime.ok then
     return {
       ok = false,
-      message = runtime_missing_message(),
+      message = runtime.message,
       draft = draft,
       payload = payload,
     }
@@ -475,19 +527,12 @@ function M.validate_draft(paths, draft, deps)
   deps = build_deps(deps)
   local python = validate_python_path(paths, draft.python_path, deps)
   local model = validate_model_path(draft.model_path, deps)
-  local runtime_ok = deps.directory_exists(paths.runtime_source_root)
-  local runtime_message = runtime_ok
-      and "Shipped runtime source is present."
-      or runtime_missing_message()
+  local runtime = M.runtime_status(paths, deps)
 
   return {
-    ok = runtime_ok and python.ok and model.ok,
+    ok = runtime.ok and python.ok and model.ok,
     created_at = now_utc(),
-    runtime = {
-      ok = runtime_ok,
-      message = runtime_message,
-      source_root = paths.runtime_source_root,
-    },
+    runtime = runtime,
     python = python,
     model = model,
     python_path = normalized_path(draft.python_path, deps),

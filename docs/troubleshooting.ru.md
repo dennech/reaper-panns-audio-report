@@ -71,7 +71,9 @@ shasum -a 256 /path/to/Cnn14_mAP=0.431.pth
 - Открой `Extensions -> ReaPack -> Synchronize packages`.
 - Обнови `REAPER Audio Tag` до последней версии из ReaPack URL этого проекта.
 - Снова открой `REAPER Audio Tag: Configure`.
-- Если в установленном пакете по-прежнему есть только `reaper/...`, но нет `reaper/runtime/src/...`, переустанови пакет через ReaPack.
+- Встроенный runtime должен устанавливаться в `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime/src/...`.
+- Если раньше был установлен `v0.3.4`, `REAPER Audio Tag` временно примет legacy path `~/Library/Application Support/REAPER/Data/runtime/src/...`, пока пакет не будет пересинхронизирован или переустановлен.
+- Если новый app-scoped path всё ещё не появился после sync, переустанови пакет из ReaPack URL этого проекта.
 
 ## Первый запуск медленный
 

@@ -22,6 +22,7 @@
 3. Открой `Extensions -> ReaPack -> Browse Packages...`.
 4. Найди `REAPER Audio Tag`.
 5. Установи пакет.
+6. ReaPack также установит встроенный runtime source в `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime/src/`.
 
 ### 3. Установи ReaImGui
 

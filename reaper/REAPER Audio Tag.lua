@@ -1,5 +1,5 @@
 -- @description REAPER Audio Tag
--- @version 0.3.4
+-- @version 0.3.5
 -- @author dennech
 -- @link https://github.com/dennech/reaper-audio-tag
 -- @screenshot https://raw.githubusercontent.com/dennech/reaper-audio-tag/main/docs/images/reaper-audio-tag-hero.png
@@ -11,20 +11,20 @@
 --
 --   Run `REAPER Audio Tag: Configure` to validate the Python and model paths before analysis.
 -- @changelog
---   - Fixed fresh ReaPack installs by moving the shipped runtime source into the canonical package tree under `reaper/runtime/src/...`.
---   - Matched the Lua runtime lookup to the real installed layout and improved `Configure` guidance for incomplete packages vs Python issues.
---   - Added install-realistic packaging regression coverage so ReaPack layout mismatches are caught before release.
+--   - Fixed ReaPack `data` handling so the shipped runtime now resolves from `REAPER/Data/reaper-panns-item-report/runtime/src/...`.
+--   - Kept one-release compatibility with the accidental `REAPER/Data/runtime/src/...` path from v0.3.4 while moving fresh installs to the app-scoped Data directory.
+--   - Removed the leftover `REAPER Audio Tag - Setup.lua` shim and tightened install-realistic packaging coverage around the real ReaPack layout.
 -- @provides
 --   [main] REAPER Audio Tag - Configure.lua
 --   [nomain] REAPER Audio Tag - Debug Export.lua
 --   [nomain] PANNs Item Report.lua
 --   [nomain] PANNs Item Report - Debug Export.lua
 --   [nomain] lib/*.lua
---   [data] runtime/src/reaper_panns_runtime/*.py
---   [data] runtime/src/reaper_panns_runtime/_vendor/*.py
---   [data] runtime/src/reaper_panns_runtime/_vendor/panns/*.py
---   [data] runtime/src/reaper_panns_runtime/_vendor/metadata/*.csv
---   [data] runtime/src/reaper_panns_runtime/_vendor/panns/LICENSE.MIT
+--   [data] reaper-panns-item-report/runtime/src/reaper_panns_runtime/*.py
+--   [data] reaper-panns-item-report/runtime/src/reaper_panns_runtime/_vendor/*.py
+--   [data] reaper-panns-item-report/runtime/src/reaper_panns_runtime/_vendor/panns/*.py
+--   [data] reaper-panns-item-report/runtime/src/reaper_panns_runtime/_vendor/metadata/*.csv
+--   [data] reaper-panns-item-report/runtime/src/reaper_panns_runtime/_vendor/panns/LICENSE.MIT
 
 local _, script_path = reaper.get_action_context()
 local script_dir = script_path:match("^(.*[\\/])") or "."
@@ -604,7 +604,7 @@ local function render_path_row(label, path_value, status, browse_label, browse_f
     end
   end
   if status and status.message then
-    ImGui.TextColored(ctx, badge_color(status.ok and "success" or "warning"), status.message)
+    ImGui.TextColored(ctx, badge_color(status.level or (status.ok and "success" or "warning")), status.message)
   end
   return path_value, changed_any
 end
@@ -643,22 +643,19 @@ local function render_configure()
     ImGui.TextWrapped(ctx, tostring(state.configure.message))
   end
   ImGui.Spacing(ctx)
+  local runtime_status = configure_runtime.runtime_status(paths)
   local validation = state.configure.validation or {
-    runtime = {
-      ok = path_utils.directory_exists(paths.runtime_source_root),
-      message = path_utils.directory_exists(paths.runtime_source_root)
-          and "Shipped runtime source is present."
-          or configure_runtime.runtime_missing_message(),
-    },
+    runtime = runtime_status,
     python = {
       ok = false,
+      level = "warning",
       message = "Choose the python or python3.11 executable file. Prefer a local .../venv/bin/python; /opt/homebrew/bin/python3.11 also works if it has the required packages.",
     },
-    model = { ok = false, message = "Choose the file Cnn14_mAP=0.431.pth, not the folder that contains it." },
+    model = { ok = false, level = "warning", message = "Choose the file Cnn14_mAP=0.431.pth, not the folder that contains it." },
   }
   ImGui.TextColored(
     ctx,
-    badge_color(validation.runtime.ok and "success" or "warning"),
+    badge_color(validation.runtime.level or (validation.runtime.ok and "success" or "warning")),
     validation.runtime.message
   )
   ImGui.Spacing(ctx)
@@ -690,8 +687,14 @@ local function render_configure()
     state.configure.message = nil
   end
   ImGui.Spacing(ctx)
-  ImGui.TextDisabled(ctx, "Runtime source")
-  ImGui.TextWrapped(ctx, paths.runtime_source_root)
+  ImGui.TextDisabled(ctx, "Runtime source (resolved)")
+  ImGui.TextWrapped(ctx, validation.runtime.source_root or paths.runtime_source_root)
+  ImGui.TextDisabled(ctx, "Expected app-scoped runtime path")
+  ImGui.TextWrapped(ctx, paths.runtime_source_expected_root or paths.runtime_source_root)
+  if paths.runtime_source_legacy_root then
+    ImGui.TextDisabled(ctx, "Legacy runtime path accepted for v0.3.4 compatibility")
+    ImGui.TextWrapped(ctx, paths.runtime_source_legacy_root)
+  end
   ImGui.TextDisabled(ctx, "Config file")
   ImGui.TextWrapped(ctx, paths.config_path)
   ImGui.TextDisabled(ctx, "Data directory")

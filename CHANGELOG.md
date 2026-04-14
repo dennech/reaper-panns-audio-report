@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.5
+
+- Fixed ReaPack `data` handling by making the canonical shipped runtime path `REAPER/Data/reaper-panns-item-report/runtime/src/...` instead of looking inside `Scripts/...`.
+- Kept one-release compatibility with the accidental legacy install path `REAPER/Data/runtime/src/...` from `v0.3.4`, so existing users can still validate and run before reinstalling.
+- Removed `REAPER Audio Tag - Setup.lua` completely and tightened install-realistic coverage around the real ReaPack `data` layout.
+
 ## 0.3.4
 
 - Fixed fresh ReaPack installs by moving the shipped runtime source into the canonical package tree under `reaper/runtime/src/...`.

@@ -71,7 +71,9 @@ shasum -a 256 /path/to/Cnn14_mAP=0.431.pth
 - Open `Extensions -> ReaPack -> Synchronize packages`.
 - Update `REAPER Audio Tag` to the latest version from this repo's ReaPack URL.
 - Reopen `REAPER Audio Tag: Configure`.
-- If the installed package still has only `reaper/...` files but no `reaper/runtime/src/...`, reinstall the package from ReaPack.
+- The shipped runtime should install into `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime/src/...`.
+- If you previously installed `v0.3.4`, `REAPER Audio Tag` will still accept the temporary legacy path `~/Library/Application Support/REAPER/Data/runtime/src/...` until you resync or reinstall.
+- If the new app-scoped path is still missing after a sync, reinstall the package from this repo's ReaPack URL.
 
 ## The first run is slow
 

@@ -22,6 +22,10 @@ _Текущее окно отчёта REAPER Audio Tag на macOS._
 - Lua actions и UI
 - локальный Python runtime source code проекта
 
+ReaPack устанавливает встроенный runtime source в:
+
+- `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime/src/`
+
 Пакет ReaPack **не** включает:
 
 - сам Python
@@ -278,7 +282,9 @@ python -m pip install \
 - Открой `Extensions -> ReaPack -> Synchronize packages`.
 - Обнови `REAPER Audio Tag` до последней версии.
 - Снова открой `REAPER Audio Tag: Configure`.
-- Если после установки в пакете есть только `reaper/...`, но нет `reaper/runtime/src/...`, переустанови пакет из ReaPack URL этого проекта.
+- Встроенный runtime должен устанавливаться в `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime/src/...`.
+- Если `Configure` всё ещё пишет, что runtime missing, сделай `Extensions -> ReaPack -> Synchronize packages`, обновись до последней версии и снова открой `Configure`.
+- Если раньше был установлен `v0.3.4`, приложение временно примет старый legacy path `~/Library/Application Support/REAPER/Data/runtime/src/...`, пока пакет не будет переустановлен или пересинхронизирован.
 
 ### Модель отклоняется
 

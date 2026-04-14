@@ -126,7 +126,7 @@ function M.start_job(paths, item_payload, options)
     return nil, "Configured model file was not found. Run REAPER Audio Tag: Configure again."
   end
   if not path_utils.directory_exists(paths.runtime_source_root) then
-    return nil, "The shipped runtime source is missing from the installed package."
+    return nil, "The shipped runtime source is missing. ReaPack should install it into REAPER/Data/reaper-panns-item-report/runtime/src. Run Synchronize packages, then reopen Configure."
   end
 
   path_utils.ensure_dir(paths.jobs_dir)

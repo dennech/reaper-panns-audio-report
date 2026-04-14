@@ -22,6 +22,7 @@
 3. Open `Extensions -> ReaPack -> Browse Packages...`.
 4. Search for `REAPER Audio Tag`.
 5. Install the package.
+6. ReaPack will also install the shipped runtime source into `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime/src/`.
 
 ### 3. Install ReaImGui
 

@@ -22,6 +22,10 @@ The ReaPack package includes:
 - the Lua actions and UI
 - the project's local Python runtime source code
 
+ReaPack installs the shipped runtime source into:
+
+- `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime/src/`
+
 The ReaPack package does **not** include:
 
 - Python itself
@@ -278,7 +282,9 @@ python -m pip install \
 - Open `Extensions -> ReaPack -> Synchronize packages`.
 - Update `REAPER Audio Tag` to the latest version.
 - Reopen `REAPER Audio Tag: Configure`.
-- If the installed package still has only `reaper/...` files but no `reaper/runtime/src/...`, reinstall the package from this repo's ReaPack URL.
+- The shipped runtime should install into `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/runtime/src/...`.
+- If `Configure` still reports the runtime as missing, run `Extensions -> ReaPack -> Synchronize packages`, update to the latest version, and reopen `Configure`.
+- If you previously installed `v0.3.4`, the app will temporarily accept the old legacy path `~/Library/Application Support/REAPER/Data/runtime/src/...` until you reinstall or resync the package.
 
 ### The model file is rejected
 
