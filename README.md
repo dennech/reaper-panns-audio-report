@@ -2,18 +2,6 @@
 
 `REAPER Audio Tag` is a REAPER action for quick clip-level audio inspection.
 
-> **macOS only for now**
->
-> This package does **not** install Python for you and does **not** download the model for you from inside REAPER.
->
-> You install the REAPER package with ReaPack, install Python yourself, install the Python dependencies yourself, download the model yourself, and then point the script to those paths from inside REAPER.
->
-> **Important:** the required PANNs model file `Cnn14_mAP=0.431.pth` is large, about **327 MB**, so the first setup includes a manual model download.
->
-> This project currently uses its **own custom ReaPack repository URL**, not a broader public ReaPack channel.
-
-It is intentionally conservative in v1: one selected audio item at a time, local inference only, and clipwise tagging only.
-
 <img src="docs/images/reaper-audio-tag-hero.png" alt="REAPER Audio Tag report window" width="760">
 
 _Current REAPER Audio Tag report window on macOS._
@@ -71,6 +59,14 @@ This is a practical clip-level inspection tool. It is **not** a timeline event d
 - macOS Apple Silicon or Intel Mac
 - Python `3.11`
 - Enough disk space for the Python environment and the model file
+
+## Setup Notes
+
+- macOS only for now
+- This project currently uses its own custom ReaPack repository URL
+- REAPER does not install Python or download the model for you
+- The required model file `Cnn14_mAP=0.431.pth` is large, about `327 MB`
+- v1 is intentionally conservative: one selected audio item at a time, local inference only, clipwise tagging only
 
 ## Installation
 
