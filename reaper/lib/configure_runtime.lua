@@ -4,7 +4,7 @@ local path_utils = require("path_utils")
 local M = {}
 
 M.CONFIG_SCHEMA = "reaper-audio-tag/config/v1"
-M.PACKAGE_VERSION = "0.3.6"
+M.PACKAGE_VERSION = "0.3.7"
 M.MODEL_FILENAME = "Cnn14_mAP=0.431.pth"
 M.MODEL_SHA256 = "0dc499e40e9761ef5ea061ffc77697697f277f6a960894903df3ada000e34b31"
 M.MODEL_SIZE_BYTES = 327428481
@@ -115,6 +115,35 @@ local function command_path(command, deps)
   return normalized_path(output, deps)
 end
 
+local function python_executable_candidates_from_folder(folder)
+  return {
+    path_utils.join(folder, "bin", "python"),
+    path_utils.join(folder, "bin", "python3"),
+    path_utils.join(folder, "bin", "python3.11"),
+    path_utils.join(folder, "python"),
+    path_utils.join(folder, "python3"),
+    path_utils.join(folder, "python3.11"),
+  }
+end
+
+local function resolve_python_input(raw_path, deps)
+  local input_path = normalized_path(raw_path, deps)
+  if input_path == "" then
+    return nil, input_path, "empty"
+  end
+
+  if deps.directory_exists(input_path) then
+    for _, candidate in ipairs(python_executable_candidates_from_folder(input_path)) do
+      if deps.exists(candidate) and not deps.directory_exists(candidate) and deps.is_executable(candidate) then
+        return candidate, input_path, "folder"
+      end
+    end
+    return nil, input_path, "folder"
+  end
+
+  return input_path, input_path, "file"
+end
+
 local function runtime_missing_message()
   return string.format(
     "The installed ReaPack package is incomplete. It should install the shipped runtime into REAPER/Data/reaper-panns-item-report/runtime/src/... Run Extensions -> ReaPack -> Synchronize packages, update REAPER Audio Tag to v%s or newer, then reopen Configure.",
@@ -145,7 +174,7 @@ function M.runtime_status(paths, deps)
     return {
       ok = true,
       level = "warning",
-      message = "Using legacy runtime source from REAPER/Data/runtime/src. v0.3.6 will still use it, but reinstalling from this repo's ReaPack URL should move it into REAPER/Data/reaper-panns-item-report/runtime/src.",
+      message = "Using legacy runtime source from REAPER/Data/runtime/src. v0.3.7 will still use it, but reinstalling from this repo's ReaPack URL should move it into REAPER/Data/reaper-panns-item-report/runtime/src.",
       source_root = source_root,
       origin = origin,
     }
@@ -181,7 +210,10 @@ end
 local function python_candidates(paths, current_path, deps)
   local candidates = {}
   push_unique(candidates, normalized_path(current_path, deps))
+  push_unique(candidates, normalized_path(path_utils.join(paths.data_dir, "venv"), deps))
   push_unique(candidates, normalized_path(path_utils.join(paths.data_dir, "venv", "bin", "python"), deps))
+  push_unique(candidates, normalized_path(path_utils.join(paths.runtime_dir or path_utils.join(paths.data_dir, "runtime"), "venv"), deps))
+  push_unique(candidates, normalized_path(path_utils.join(paths.runtime_dir or path_utils.join(paths.data_dir, "runtime"), "venv", "bin", "python"), deps))
   push_unique(candidates, command_path("command -v python3.11 2>/dev/null", deps))
   push_unique(candidates, normalized_path("/opt/homebrew/bin/python3.11", deps))
   push_unique(candidates, normalized_path("/usr/local/bin/python3.11", deps))
@@ -204,7 +236,11 @@ function M.suggested_python_path(paths, current_path, deps)
     return current
   end
   return first_matching_candidate(python_candidates(paths, current_path, deps), function(candidate)
-    return deps.exists(candidate) and deps.is_executable(candidate)
+    local executable = resolve_python_input(candidate, deps)
+    return executable ~= nil
+      and deps.exists(executable)
+      and not deps.directory_exists(executable)
+      and deps.is_executable(executable)
   end)
 end
 
@@ -225,7 +261,8 @@ local function config_payload_for_draft(paths, draft, validation)
     created_at = validation.created_at or now_utc(),
     updated_at = now_utc(),
     python = {
-      path = draft.python_path,
+      path = validation.python.executable_path or draft.python_path,
+      input_path = draft.python_path,
       version = validation.python.version_string,
       modules = validation.python.versions,
     },
@@ -279,9 +316,12 @@ end
 local function python_validation_result(path_value)
   return {
     path = path_value,
+    input_path = path_value,
+    executable_path = nil,
+    input_kind = nil,
     ok = false,
     level = "warning",
-    message = "Choose the python or python3.11 executable file. A local .../venv/bin/python is recommended; /opt/homebrew/bin/python3.11 also works if it has the required packages.",
+    message = "Choose a Python environment folder, usually .../reaper-panns-item-report/venv. A python or python3.11 executable file also works.",
     version = nil,
     version_string = nil,
     versions = {},
@@ -301,21 +341,31 @@ local function model_validation_result(path_value)
 end
 
 local function validate_python_path(paths, python_path, deps)
-  local expanded = normalized_path(python_path, deps)
-  local result = python_validation_result(expanded)
-  if expanded == "" then
+  local executable_path, input_path, input_kind = resolve_python_input(python_path, deps)
+  local result = python_validation_result(input_path)
+  result.input_kind = input_kind
+  result.executable_path = executable_path
+  if input_path == "" then
     return result
   end
-  if not deps.exists(expanded) then
-    result.message = "Python 3.11 was not found at the selected path."
+  if not deps.exists(input_path) then
+    result.message = "Python was not found at the selected path. Choose the venv folder or paste the python3.11 executable path."
     return result
   end
-  if deps.directory_exists(expanded) then
-    result.message = "Choose the executable file inside your environment, for example .../venv/bin/python."
+  if input_kind == "folder" and not executable_path then
+    result.message = "This folder does not contain bin/python, bin/python3, or bin/python3.11. Choose the venv folder created during install."
     return result
   end
-  if not deps.is_executable(expanded) then
-    result.message = "The selected Python path is not executable."
+  if not executable_path or not deps.exists(executable_path) then
+    result.message = "Python was not found at the selected path. Choose the venv folder or paste the python3.11 executable path."
+    return result
+  end
+  if deps.directory_exists(executable_path) then
+    result.message = "The selected path is a folder, but no Python executable was found inside it."
+    return result
+  end
+  if not deps.is_executable(executable_path) then
+    result.message = "The selected Python file is not executable."
     return result
   end
   local runtime = M.runtime_status(paths, deps)
@@ -324,7 +374,7 @@ local function validate_python_path(paths, python_path, deps)
     return result
   end
 
-  local payload, err = probe_python_environment(expanded, runtime.source_root, deps)
+  local payload, err = probe_python_environment(executable_path, runtime.source_root, deps)
   if not payload then
     result.message = err or "Python validation failed."
     return result
@@ -339,7 +389,7 @@ local function validate_python_path(paths, python_path, deps)
   result.versions = payload.versions or {}
 
   if major ~= 3 or minor ~= 11 then
-    result.message = "The selected Python must be version 3.11.x."
+    result.message = "This environment uses Python " .. result.version_string .. ". REAPER Audio Tag needs Python 3.11.x."
     return result
   end
 
@@ -348,24 +398,25 @@ local function validate_python_path(paths, python_path, deps)
     local ordered = { "numpy", "soundfile", "torch", "torchaudio", "torchlibrosa" }
     for _, name in ipairs(ordered) do
       if errors[name] then
-        result.message = "The selected environment is missing " .. name .. "."
+        result.message = "Python found, but this environment is missing " .. name .. ". Run the dependency install command from the README, then check setup again."
         return result
       end
     end
   end
 
   if tostring(result.versions.torch or "") ~= "2.6.0" or tostring(result.versions.torchaudio or "") ~= "2.6.0" then
-    result.message = "The selected environment is missing torch==2.6.0 or torchaudio==2.6.0."
+    result.message = "Python found, but this environment needs torch==2.6.0 and torchaudio==2.6.0. Reinstall the pinned dependencies, then check setup again."
     return result
   end
   if tostring(result.versions.torchlibrosa or "") ~= "0.1.0" then
-    result.message = "The selected environment is missing torchlibrosa==0.1.0."
+    result.message = "Python found, but this environment needs torchlibrosa==0.1.0. Reinstall the pinned dependencies, then check setup again."
     return result
   end
 
   result.ok = true
   result.level = "success"
-  result.message = "Python 3.11 and required imports look good."
+  result.path = executable_path
+  result.message = "Python 3.11 is ready and all required packages are installed."
   return result
 end
 
@@ -426,7 +477,7 @@ function M.load_draft(paths, deps)
   end
 
   if payload.schema_version == M.CONFIG_SCHEMA then
-    draft.python_path = normalized_path(payload.python and payload.python.path or "", deps)
+    draft.python_path = normalized_path(payload.python and (payload.python.input_path or payload.python.path) or "", deps)
   end
   draft.model_path = normalized_path(payload.model and payload.model.path or "", deps)
   return draft, payload
@@ -442,7 +493,7 @@ function M.prefill_draft(paths, deps)
     draft.model_path = M.suggested_model_path(paths, "", deps)
   end
   if not payload then
-    return draft, "Configuration is missing. Set your Python path and model path."
+    return draft, "Configuration is missing. Choose your Python environment and PANNs model file."
   end
   if payload.schema_version ~= M.CONFIG_SCHEMA then
     return draft, "Saved configuration uses the old installer format. Choose Python 3.11 and save a new transparent configuration."
@@ -478,7 +529,8 @@ function M.saved_config_status(paths, deps)
       payload = payload,
     }
   end
-  if draft.python_path == "" or not deps.exists(draft.python_path) or not deps.is_executable(draft.python_path) then
+  local saved_python_path = normalized_path(payload.python and payload.python.path or "", deps)
+  if saved_python_path == "" or not deps.exists(saved_python_path) or not deps.is_executable(saved_python_path) then
     return {
       ok = false,
       message = "Python 3.11 was not found at the saved path. Reopen Configure.",
@@ -535,7 +587,7 @@ function M.validate_draft(paths, draft, deps)
     runtime = runtime,
     python = python,
     model = model,
-    python_path = normalized_path(draft.python_path, deps),
+    python_path = python.input_path,
     model_path = normalized_path(draft.model_path, deps),
   }
 end
@@ -551,7 +603,7 @@ end
 function M.save(paths, draft, validation, deps)
   deps = build_deps(deps)
   if not validation or not validation.ok then
-    return false, "Validate Python and model paths before saving."
+    return false, "Check setup before saving."
   end
 
   local normalized_draft = {

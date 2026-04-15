@@ -98,15 +98,15 @@ shasum -a 256 /path/to/Cnn14_mAP=0.431.pth
 1. Открой Actions list.
 2. Запусти `REAPER Audio Tag: Configure`.
 3. Укажи:
-   - Python executable: файл executable внутри environment, обычно `.../venv/bin/python`
+   - Python environment: папку venv, куда установлены зависимости, обычно `.../reaper-panns-item-report/venv`
    - model file: сам файл `Cnn14_mAP=0.431.pth`
-4. Нажми `Validate`.
-5. Нажми `Save`.
+4. Нажми `Check Setup`.
+5. Нажми `Save Configuration`.
 
 Примеры:
 
-- предпочтительный путь к Python: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
-- допустимый Homebrew path: `/opt/homebrew/bin/python3.11`
+- предпочтительный Python environment: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv`
+- expert-путь к Python executable: `/opt/homebrew/bin/python3.11`
 - путь к модели: `/path/to/Cnn14_mAP=0.431.pth`
 
 ### 8. Запусти отчёт

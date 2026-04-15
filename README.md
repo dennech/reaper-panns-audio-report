@@ -139,10 +139,10 @@ python -m pip install \
   "torchlibrosa==0.1.0"
 ```
 
-The Python path you will use later in REAPER is:
+The Python environment folder you will use later in REAPER is:
 
 ```text
-~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python
+~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv
 ```
 
 Optional helper script for source checkouts or manual repository downloads:
@@ -189,24 +189,24 @@ REAPER Audio Tag: Configure
 
 Set:
 
-- **Python executable**: the executable file inside your environment, usually `.../venv/bin/python`
-- **Model file**: the downloaded file `Cnn14_mAP=0.431.pth`
+- **Python environment**: the venv folder where dependencies are installed, usually `.../reaper-panns-item-report/venv`
+- **PANNs model**: the downloaded file `Cnn14_mAP=0.431.pth`
 
 Examples:
 
-- preferred Python path: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
-- acceptable Homebrew path: `/opt/homebrew/bin/python3.11`
+- preferred Python environment: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv`
+- expert Python executable path: `/opt/homebrew/bin/python3.11`
 - model path: `/path/to/Cnn14_mAP=0.431.pth`
 
 Then use:
 
-- `Validate`
-- `Save`
+- `Check Setup`
+- `Save Configuration`
 
 <!-- TODO: Replace this placeholder reference with a real Configure screenshot before the next release. -->
 ![REAPER Audio Tag Configure window](docs/images/reaper-audio-tag-configure.png)
 
-_Suggested Configure screen: Python path, model path, validation state, and save action._
+_Suggested Configure screen: Python environment, model file, setup check, save action, and hidden advanced diagnostics._
 
 ### 7. Run the report
 
@@ -253,15 +253,16 @@ Install `ReaImGui: ReaScript binding for Dear ImGui` from ReaPack and restart RE
 
 ### Python path is invalid
 
-Make sure `Configure` points to the Python executable file inside your local environment, not to a folder or a random system path.
+Make sure `Configure` points to the venv folder created during setup, or to the actual Python executable inside that venv.
 
 Good examples:
 
+- `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv`
 - `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
 - `/opt/homebrew/bin/python3.11`
 - `/usr/local/bin/python3.11`
 
-The long `Cellar/.../Python.framework/...` path can work, but the local venv path is preferred.
+The long `Cellar/.../Python.framework/...` path can work, but the local venv folder is preferred because it is where the required packages are installed.
 
 ### Python dependencies are missing
 

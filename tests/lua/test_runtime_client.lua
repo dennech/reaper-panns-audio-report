@@ -18,10 +18,56 @@ local function write_json(path, payload)
   handle:close()
 end
 
+local function write_text(path, value)
+  path_utils.ensure_dir(path_utils.dirname(path))
+  local handle = assert(io.open(path, 'wb'))
+  handle:write(value)
+  handle:close()
+end
+
+local function write_fake_python(path)
+  write_text(path, [[#!/bin/sh
+result=""
+log=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --result-file)
+      result="$2"
+      shift 2
+      ;;
+    --log-file)
+      log="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+printf 'PYTHONPATH=%s\n' "$PYTHONPATH" >> "$log"
+printf 'REAPER_RESOURCE_PATH=%s\n' "$REAPER_RESOURCE_PATH" >> "$log"
+cat > "$result" <<'JSON'
+{"schema_version":"reaper-panns-item-report/v1","status":"ok","backend":"fake","attempted_backends":["fake"],"timing_ms":{"preprocess":0,"inference":0,"total":0},"summary":"ok","predictions":[],"highlights":[],"warnings":[],"model_status":{"name":"Cnn14","source":"test"},"item":{},"error":null}
+JSON
+]])
+  os.execute('chmod +x ' .. path_utils.sh_quote(path))
+end
+
+local function wait_for_file(path)
+  for _ = 1, 50 do
+    if path_utils.exists(path) then
+      return true
+    end
+    os.execute('sleep 0.05')
+  end
+  return false
+end
+
 function tests.test_start_job_uses_configured_python_and_shipped_source()
   local original_reaper = _G.reaper
-  local temp_root = mktemp_dir()
-  local captured = {}
+  local base_root = mktemp_dir()
+  local temp_root = path_utils.join(base_root, 'runtime launch with spaces')
+  path_utils.ensure_dir(temp_root)
 
   local configured_python = path_utils.join(temp_root, 'venv', 'bin', 'python')
   local runtime_source_root = path_utils.join(temp_root, 'runtime', 'src')
@@ -29,9 +75,7 @@ function tests.test_start_job_uses_configured_python_and_shipped_source()
   os.execute('mkdir -p ' .. path_utils.sh_quote(path_utils.dirname(configured_python)))
   os.execute('mkdir -p ' .. path_utils.sh_quote(runtime_source_root))
   os.execute('mkdir -p ' .. path_utils.sh_quote(path_utils.dirname(model_path)))
-  local python_handle = assert(io.open(configured_python, 'wb'))
-  python_handle:write('#!/usr/bin/env python3\n')
-  python_handle:close()
+  write_fake_python(configured_python)
   local model_handle = assert(io.open(model_path, 'wb'))
   model_handle:write('model\n')
   model_handle:close()
@@ -55,10 +99,8 @@ function tests.test_start_job_uses_configured_python_and_shipped_source()
     RecursiveCreateDirectory = function(path)
       os.execute('mkdir -p ' .. path_utils.sh_quote(path))
     end,
-    ExecProcess = function(command, timeout)
-      captured.command = command
-      captured.timeout = timeout
-      return 0
+    ExecProcess = function()
+      error('runtime_client.start_job should not use reaper.ExecProcess')
     end,
     genGuid = function()
       return '{job-guid}'
@@ -93,19 +135,23 @@ function tests.test_start_job_uses_configured_python_and_shipped_source()
 
   luaunit.assertEquals(err, nil)
   luaunit.assertEquals(job ~= nil, true)
-  luaunit.assertStrContains(captured.command, 'PYTHONPATH=' .. path_utils.sh_quote(runtime_source_root))
-  luaunit.assertStrContains(captured.command, path_utils.sh_quote(configured_python))
-  luaunit.assertStrContains(captured.command, 'REAPER_RESOURCE_PATH=' .. path_utils.sh_quote(path_utils.join(temp_root, 'REAPER')))
-  luaunit.assertStrContains(captured.command, '--log-file')
-  luaunit.assertEquals(string.find(captured.command, '/bin/sh -lc', 1, true), nil)
-  luaunit.assertEquals(string.find(captured.command, '>', 1, true), nil)
-  luaunit.assertEquals(string.find(captured.command, '/tmp/evil-model.pth', 1, true), nil)
+  luaunit.assertEquals(path_utils.exists(job.launch_script), true)
+  local launch_source = assert(path_utils.read_file(job.launch_script))
+  luaunit.assertStrContains(launch_source, 'PYTHONPATH=' .. path_utils.sh_quote(runtime_source_root))
+  luaunit.assertStrContains(launch_source, path_utils.sh_quote(configured_python))
+  luaunit.assertStrContains(launch_source, 'REAPER_RESOURCE_PATH=' .. path_utils.sh_quote(path_utils.join(temp_root, 'REAPER')))
+  luaunit.assertStrContains(launch_source, '--log-file')
+  luaunit.assertEquals(string.find(launch_source, '/tmp/evil-model.pth', 1, true), nil)
   luaunit.assertEquals(job.timeout_sec, 12)
+  luaunit.assertEquals(wait_for_file(job.result_file), true)
+  local log_text = assert(path_utils.read_file(job.log_file))
+  luaunit.assertStrContains(log_text, 'PYTHONPATH=' .. runtime_source_root)
+  luaunit.assertStrContains(log_text, 'REAPER_RESOURCE_PATH=' .. path_utils.join(temp_root, 'REAPER'))
 
   local request_text = assert(path_utils.read_file(job.request_file))
   luaunit.assertEquals(string.find(request_text, 'model_path', 1, true), nil)
 
-  os.execute('rm -rf ' .. path_utils.sh_quote(temp_root))
+  os.execute('rm -rf ' .. path_utils.sh_quote(base_root))
 end
 
 function tests.test_start_job_scales_timeout_for_long_items()
@@ -121,6 +167,7 @@ function tests.test_start_job_scales_timeout_for_long_items()
   local python_handle = assert(io.open(configured_python, 'wb'))
   python_handle:write('#!/usr/bin/env python3\n')
   python_handle:close()
+  os.execute('chmod +x ' .. path_utils.sh_quote(configured_python))
   local model_handle = assert(io.open(model_path, 'wb'))
   model_handle:write('model\n')
   model_handle:close()
@@ -145,7 +192,7 @@ function tests.test_start_job_scales_timeout_for_long_items()
       os.execute('mkdir -p ' .. path_utils.sh_quote(path))
     end,
     ExecProcess = function()
-      return 0
+      error('runtime_client.start_job should not use reaper.ExecProcess')
     end,
     genGuid = function()
       return '{job-guid}'

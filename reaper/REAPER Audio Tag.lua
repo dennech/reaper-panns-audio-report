@@ -1,5 +1,5 @@
 -- @description REAPER Audio Tag
--- @version 0.3.6
+-- @version 0.3.7
 -- @author dennech
 -- @link https://github.com/dennech/reaper-audio-tag
 -- @screenshot https://raw.githubusercontent.com/dennech/reaper-audio-tag/main/docs/images/reaper-audio-tag-hero.png
@@ -11,9 +11,9 @@
 --
 --   Run `REAPER Audio Tag: Configure` to validate the Python and model paths before analysis.
 -- @changelog
---   - Fixed ReaPack `data` handling so the shipped runtime now resolves from `REAPER/Data/reaper-panns-item-report/runtime/src/...`.
---   - Kept one-release compatibility with the accidental `REAPER/Data/runtime/src/...` path from v0.3.4 while moving fresh installs to the app-scoped Data directory.
---   - Removed the leftover deprecated setup shim and tightened install-realistic packaging coverage around the real ReaPack layout.
+--   - Fixed runtime launch from REAPER by replacing the fragile direct `ExecProcess` command with a per-job shell launcher that handles spaces and Unicode paths.
+--   - Simplified `Configure`: users can now choose a Python environment folder, while advanced diagnostics are hidden below the main setup fields.
+--   - Added install-realistic runtime-launch coverage that waits for a real `result.json`, so stalled jobs are caught by tests.
 -- @provides
 --   [main] REAPER Audio Tag - Configure.lua
 --   [nomain] REAPER Audio Tag - Debug Export.lua
@@ -617,6 +617,14 @@ local function model_browse_path()
   return configure_runtime.suggested_model_path(paths, state.configure.model_path)
 end
 
+local function folder_initial_path(initial_path)
+  local candidate = initial_path or ""
+  if candidate ~= "" and not path_utils.directory_exists(candidate) then
+    return path_utils.dirname(candidate)
+  end
+  return candidate
+end
+
 local function choose_file(initial_path, prompt, extension_hint)
   if not reaper.GetUserFileNameForRead then
     return nil
@@ -628,12 +636,66 @@ local function choose_file(initial_path, prompt, extension_hint)
   return nil
 end
 
+local function choose_folder_or_file(initial_path, folder_prompt, file_prompt)
+  if reaper.JS_Dialog_BrowseForFolder then
+    local ok_call, ok, selected = pcall(reaper.JS_Dialog_BrowseForFolder, folder_prompt, folder_initial_path(initial_path) or "")
+    if ok_call and ok and selected and selected ~= "" then
+      return selected
+    end
+  end
+  return choose_file(initial_path, file_prompt, "")
+end
+
+local function render_advanced_diagnostics(validation)
+  ImGui.Spacing(ctx)
+  local opened = true
+  local used_tree = false
+  if ImGui.TreeNode then
+    opened = ImGui.TreeNode(ctx, "Advanced diagnostics")
+    used_tree = true
+  else
+    ImGui.TextDisabled(ctx, "Advanced diagnostics")
+  end
+  if not opened then
+    return
+  end
+
+  ImGui.TextDisabled(ctx, "Runtime source (resolved)")
+  ImGui.TextWrapped(ctx, validation.runtime.source_root or paths.runtime_source_root)
+  ImGui.TextDisabled(ctx, "Expected app-scoped runtime path")
+  ImGui.TextWrapped(ctx, paths.runtime_source_expected_root or paths.runtime_source_root)
+  if paths.runtime_source_legacy_root then
+    ImGui.TextDisabled(ctx, "Legacy runtime path accepted for v0.3.4 compatibility")
+    ImGui.TextWrapped(ctx, paths.runtime_source_legacy_root)
+  end
+  if validation.python and validation.python.executable_path then
+    ImGui.TextDisabled(ctx, "Resolved Python executable")
+    ImGui.TextWrapped(ctx, validation.python.executable_path)
+  end
+  ImGui.TextDisabled(ctx, "Config file")
+  ImGui.TextWrapped(ctx, paths.config_path)
+  ImGui.TextDisabled(ctx, "Data directory")
+  ImGui.TextWrapped(ctx, paths.data_dir)
+  ImGui.TextWrapped(
+    ctx,
+    string.format(
+      "Expected model: %s (%d bytes, sha256 %s)",
+      configure_runtime.MODEL_FILENAME,
+      configure_runtime.MODEL_SIZE_BYTES,
+      configure_runtime.MODEL_SHA256
+    )
+  )
+  if used_tree and ImGui.TreePop then
+    ImGui.TreePop(ctx)
+  end
+end
+
 local function render_configure()
   ensure_configure_ready()
   telemetry_counter("tags_total", 0)
   telemetry_counter("visible_tags", 0)
   telemetry_label("focused_tag", state.focused_tag or "none")
-  render_image_label("details", "Configure Python 3.11 and the PANNs model path.", badge_color("accent"), 16)
+  render_image_label("details", "Configure REAPER Audio Tag.", badge_color("accent"), 16)
   if state.last_error then
     ImGui.Spacing(ctx)
     ImGui.TextColored(ctx, badge_color("warning"), tostring(state.last_error))
@@ -649,9 +711,9 @@ local function render_configure()
     python = {
       ok = false,
       level = "warning",
-      message = "Choose the python or python3.11 executable file. Prefer a local .../venv/bin/python; /opt/homebrew/bin/python3.11 also works if it has the required packages.",
+      message = "Choose your Python environment folder. A python or python3.11 file also works.",
     },
-    model = { ok = false, level = "warning", message = "Choose the file Cnn14_mAP=0.431.pth, not the folder that contains it." },
+    model = { ok = false, level = "warning", message = "Choose the downloaded Cnn14_mAP=0.431.pth file." },
   }
   ImGui.TextColored(
     ctx,
@@ -660,62 +722,42 @@ local function render_configure()
   )
   ImGui.Spacing(ctx)
   local updated_python_path, python_changed = render_path_row(
-    "Python executable",
+    "1. Python environment",
     state.configure.python_path,
     validation.python,
-    "Browse Python",
+    "Browse Folder/File",
     function(current)
-      return choose_file(python_browse_path() or current, "Choose the python or python3.11 executable file", "")
+      return choose_folder_or_file(python_browse_path() or current, "Choose the Python environment folder", "Choose python or python3.11")
     end
   )
   state.configure.python_path = updated_python_path
-  ImGui.TextDisabled(ctx, "Choose the executable file. Prefer .../venv/bin/python; /opt/homebrew/bin/python3.11 also works if it has numpy, soundfile, torch, torchaudio, and torchlibrosa.")
+  ImGui.TextDisabled(ctx, "Recommended: choose the venv folder, for example .../reaper-panns-item-report/venv. Expert path: /opt/homebrew/bin/python3.11 if it has the required packages.")
   ImGui.Spacing(ctx)
   local updated_model_path, model_changed = render_path_row(
-    "Model file",
+    "2. PANNs model",
     state.configure.model_path,
     validation.model,
-    "Browse Model",
+    "Browse Model File",
     function(current)
       return choose_file(model_browse_path() or current, "Choose the Cnn14_mAP=0.431.pth model file", "pth")
     end
   )
   state.configure.model_path = updated_model_path
-  ImGui.TextDisabled(ctx, "Choose the exact file Cnn14_mAP=0.431.pth, not the folder that contains it.")
+  ImGui.TextDisabled(ctx, "Choose the downloaded Cnn14_mAP=0.431.pth file, not the folder that contains it.")
   if python_changed or model_changed then
     state.configure.validation = nil
     state.configure.message = nil
   end
+  render_advanced_diagnostics(validation)
   ImGui.Spacing(ctx)
-  ImGui.TextDisabled(ctx, "Runtime source (resolved)")
-  ImGui.TextWrapped(ctx, validation.runtime.source_root or paths.runtime_source_root)
-  ImGui.TextDisabled(ctx, "Expected app-scoped runtime path")
-  ImGui.TextWrapped(ctx, paths.runtime_source_expected_root or paths.runtime_source_root)
-  if paths.runtime_source_legacy_root then
-    ImGui.TextDisabled(ctx, "Legacy runtime path accepted for v0.3.4 compatibility")
-    ImGui.TextWrapped(ctx, paths.runtime_source_legacy_root)
-  end
-  ImGui.TextDisabled(ctx, "Config file")
-  ImGui.TextWrapped(ctx, paths.config_path)
-  ImGui.TextDisabled(ctx, "Data directory")
-  ImGui.TextWrapped(ctx, paths.data_dir)
-  ImGui.Spacing(ctx)
-  ImGui.TextWrapped(
-    ctx,
-    string.format(
-      "Expected model: %s (%d bytes, sha256 %s)",
-      configure_runtime.MODEL_FILENAME,
-      configure_runtime.MODEL_SIZE_BYTES,
-      configure_runtime.MODEL_SHA256
-    )
-  )
-  ImGui.Spacing(ctx)
-  if ImGui.Button(ctx, "Validate") then
+  if ImGui.Button(ctx, "Check Setup") then
     validate_configure()
   end
   ImGui.SameLine(ctx)
-  if ImGui.Button(ctx, "Save") then
-    save_configuration()
+  if ImGui.Button(ctx, "Save Configuration") then
+    if not save_configuration() then
+      state.configure.message = "Check setup first. Save is available after Python and model validation pass."
+    end
   end
   ImGui.SameLine(ctx)
   if ImGui.Button(ctx, "Save and Run") then

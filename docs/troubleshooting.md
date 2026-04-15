@@ -23,12 +23,13 @@
 "/path/to/python" --version
 ```
 
-- Use the Python executable file inside your local venv, not a folder and not a random system binary.
+- Prefer the Python environment folder created during setup. A direct Python executable path also works.
 - Good examples:
+  `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv`
   `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
   `/opt/homebrew/bin/python3.11`
   `/usr/local/bin/python3.11`
-- The long `Cellar/.../Python.framework/...` path can work, but the local venv path is preferred.
+- The long `Cellar/.../Python.framework/...` path can work, but the local venv folder is preferred because it is where the required packages are installed.
 - If needed, recreate the venv with `python3.11 -m venv ...`.
 
 ## `Configure` says dependencies are missing

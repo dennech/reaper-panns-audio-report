@@ -54,6 +54,24 @@ local function write_request(path, payload)
   path_utils.write_file(path, text)
 end
 
+local function write_launcher_script(script_path, paths, python_path, request_file, result_file, log_file)
+  local lines = {
+    "#!/bin/sh",
+    "set -u",
+    "{",
+    "  printf '[%s] Launcher started.\\n' \"$(date '+%Y-%m-%d %H:%M:%S')\"",
+    "  export REAPER_RESOURCE_PATH=" .. path_utils.sh_quote(paths.resource_dir),
+    "  export PYTHONPATH=" .. path_utils.sh_quote(paths.runtime_source_root),
+    "  exec " .. path_utils.sh_quote(python_path) .. " -m reaper_panns_runtime analyze \\",
+    "    --request-file " .. path_utils.sh_quote(request_file) .. " \\",
+    "    --result-file " .. path_utils.sh_quote(result_file) .. " \\",
+    "    --log-file " .. path_utils.sh_quote(log_file),
+    "} >> " .. path_utils.sh_quote(log_file) .. " 2>&1",
+    "",
+  }
+  return path_utils.write_file(script_path, table.concat(lines, "\n"))
+end
+
 local function positive_number(value)
   local numeric = tonumber(value)
   if numeric and numeric > 0 then
@@ -122,6 +140,9 @@ function M.start_job(paths, item_payload, options)
   if not path_utils.exists(python_path) then
     return nil, "Configured Python 3.11 executable was not found. Run REAPER Audio Tag: Configure again."
   end
+  if not path_utils.is_executable(python_path) then
+    return nil, "Configured Python path is not executable. Run REAPER Audio Tag: Configure again."
+  end
   if not path_utils.exists(model_path) then
     return nil, "Configured model file was not found. Run REAPER Audio Tag: Configure again."
   end
@@ -137,6 +158,7 @@ function M.start_job(paths, item_payload, options)
   local request_file = path_utils.join(job_dir, "request.json")
   local result_file = path_utils.join(job_dir, "result.json")
   local log_file = path_utils.join(job_dir, "runtime.log")
+  local launch_script = path_utils.join(job_dir, "launch-runtime.sh")
   local requested_backend = options.requested_backend or "auto"
   local timeout_sec = positive_number(options.timeout_sec) or M.suggest_timeout_sec(item_payload, requested_backend)
 
@@ -149,23 +171,17 @@ function M.start_job(paths, item_payload, options)
   }
   write_request(request_file, request_payload)
 
-  local command = table.concat({
-    "env",
-    "REAPER_RESOURCE_PATH=" .. path_utils.sh_quote(paths.resource_dir),
-    "PYTHONPATH=" .. path_utils.sh_quote(paths.runtime_source_root),
-    path_utils.sh_quote(python_path),
-    "-m",
-    "reaper_panns_runtime",
-    "analyze",
-    "--request-file",
-    path_utils.sh_quote(request_file),
-    "--result-file",
-    path_utils.sh_quote(result_file),
-    "--log-file",
-    path_utils.sh_quote(log_file),
-  }, " ")
+  local ok, write_err = write_launcher_script(launch_script, paths, python_path, request_file, result_file, log_file)
+  if not ok then
+    return nil, "Could not write the runtime launcher script: " .. tostring(write_err or "unknown error")
+  end
+  path_utils.run_command("chmod 700 " .. path_utils.sh_quote(launch_script))
 
-  reaper.ExecProcess(command, -1)
+  local launch_command = "/bin/sh " .. path_utils.sh_quote(launch_script) .. " >/dev/null 2>&1 &"
+  local launched = path_utils.run_command(launch_command)
+  if not launched then
+    return nil, "Could not start the runtime launcher. Reopen Configure and validate the Python environment."
+  end
 
   return {
     id = job_id,
@@ -173,6 +189,8 @@ function M.start_job(paths, item_payload, options)
     request_file = request_file,
     result_file = result_file,
     log_file = log_file,
+    launch_script = launch_script,
+    launch_command = launch_command,
     started_at = reaper.time_precise(),
     timeout_sec = timeout_sec,
     request_payload = request_payload,

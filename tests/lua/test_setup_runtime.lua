@@ -24,6 +24,44 @@ local function write_json(path, payload)
   write_text(path, json.encode(payload))
 end
 
+local function write_fake_python(path)
+  write_text(path, [[#!/bin/sh
+result=""
+log=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --result-file)
+      result="$2"
+      shift 2
+      ;;
+    --log-file)
+      log="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+printf 'PYTHONPATH=%s\n' "$PYTHONPATH" >> "$log"
+printf 'REAPER_RESOURCE_PATH=%s\n' "$REAPER_RESOURCE_PATH" >> "$log"
+cat > "$result" <<'JSON'
+{"schema_version":"reaper-panns-item-report/v1","status":"ok","backend":"fake","attempted_backends":["fake"],"timing_ms":{"preprocess":0,"inference":0,"total":0},"summary":"ok","predictions":[],"highlights":[],"warnings":[],"model_status":{"name":"Cnn14","source":"test"},"item":{},"error":null}
+JSON
+]])
+  os.execute("chmod +x " .. path_utils.sh_quote(path))
+end
+
+local function wait_for_file(path)
+  for _ = 1, 50 do
+    if path_utils.exists(path) then
+      return true
+    end
+    os.execute("sleep 0.05")
+  end
+  return false
+end
+
 local function build_paths(root)
   local resource_dir = path_utils.join(root, "Library", "Application Support", "REAPER")
   local package_root = path_utils.join(resource_dir, "Scripts", "REAPER Audio Tag")
@@ -75,7 +113,8 @@ end
 function tests.test_prefill_draft_autodetects_python_and_model_candidates()
   local root = mktemp_dir()
   local paths = build_paths(root)
-  local expected_python = path_utils.join(paths.data_dir, "venv", "bin", "python")
+  local expected_python = path_utils.join(paths.data_dir, "venv")
+  local expected_python_executable = path_utils.join(expected_python, "bin", "python")
   local expected_model = path_utils.join(root, "Downloads", configure_runtime.MODEL_FILENAME)
 
   local draft, message = configure_runtime.prefill_draft(paths, {
@@ -86,13 +125,13 @@ function tests.test_prefill_draft_autodetects_python_and_model_candidates()
       return path
     end,
     exists = function(path)
-      return path == expected_python or path == expected_model
+      return path == expected_python or path == expected_python_executable or path == expected_model
     end,
     is_executable = function(path)
-      return path == expected_python
+      return path == expected_python_executable
     end,
     directory_exists = function(path)
-      return path == paths.runtime_source_root
+      return path == paths.runtime_source_root or path == expected_python
     end,
     capture_command = function()
       return nil
@@ -149,17 +188,19 @@ function tests.test_validate_draft_accepts_good_python_and_model()
   local paths = build_paths(root)
 
   local validation = configure_runtime.validate_draft(paths, {
-    python_path = "~/venv/bin/python",
+    python_path = "~/venv",
     model_path = "/tmp/Cnn14_mAP=0.431.pth",
   }, {
     expand_user = function(path)
-      return path == "~/venv/bin/python" and "/Users/test/venv/bin/python" or path
+      return path == "~/venv" and "/Users/test/venv" or path
     end,
     directory_exists = function(path)
-      return path == paths.runtime_source_root
+      return path == paths.runtime_source_root or path == "/Users/test/venv"
     end,
     exists = function(path)
-      return path == "/Users/test/venv/bin/python" or path == "/tmp/Cnn14_mAP=0.431.pth"
+      return path == "/Users/test/venv"
+        or path == "/Users/test/venv/bin/python"
+        or path == "/tmp/Cnn14_mAP=0.431.pth"
     end,
     is_executable = function(path)
       return path == "/Users/test/venv/bin/python"
@@ -193,7 +234,8 @@ function tests.test_validate_draft_accepts_good_python_and_model()
   luaunit.assertEquals(validation.runtime.origin, "data_app")
   luaunit.assertEquals(validation.python.ok, true)
   luaunit.assertEquals(validation.model.ok, true)
-  luaunit.assertEquals(validation.python_path, "/Users/test/venv/bin/python")
+  luaunit.assertEquals(validation.python_path, "/Users/test/venv")
+  luaunit.assertEquals(validation.python.executable_path, "/Users/test/venv/bin/python")
 end
 
 function tests.test_validate_draft_accepts_legacy_v034_runtime_source()
@@ -344,7 +386,7 @@ function tests.test_save_requires_validated_configuration_and_writes_new_schema(
     model_path = "/tmp/Cnn14_mAP=0.431.pth",
   }, nil)
   luaunit.assertEquals(ok, false)
-  luaunit.assertStrContains(err, "Validate Python and model paths")
+  luaunit.assertStrContains(err, "Check setup")
 
   local validation = {
     ok = true,
@@ -372,6 +414,7 @@ function tests.test_save_requires_validated_configuration_and_writes_new_schema(
   local payload = assert(json.decode(assert(path_utils.read_file(paths.config_path))))
   luaunit.assertEquals(payload.schema_version, configure_runtime.CONFIG_SCHEMA)
   luaunit.assertEquals(payload.python.path, "/tmp/python3")
+  luaunit.assertEquals(payload.python.input_path, "/tmp/python3")
   luaunit.assertEquals(payload.model.path, "/tmp/Cnn14_mAP=0.431.pth")
   luaunit.assertEquals(payload.validation.model.sha256, configure_runtime.MODEL_SHA256)
 
@@ -521,15 +564,13 @@ function tests.test_reapack_install_layout_smoke_test_covers_configure_and_runti
   local script_path = path_utils.join(script_dir, "REAPER Audio Tag.lua")
   local configured_python = path_utils.join(root, "venv", "bin", "python")
   local model_path = path_utils.join(root, "models", "Cnn14_mAP=0.431.pth")
-  local captured = {}
 
   path_utils.ensure_dir(runtime_source_root)
   path_utils.ensure_dir(path_utils.dirname(configured_python))
   path_utils.ensure_dir(path_utils.dirname(model_path))
   path_utils.ensure_dir(resource_dir)
 
-  write_text(configured_python, "#!/usr/bin/env python3\n")
-  os.execute("chmod +x " .. path_utils.sh_quote(configured_python))
+  write_fake_python(configured_python)
   write_text(model_path, "model\n")
 
   _G.reaper = {
@@ -545,9 +586,8 @@ function tests.test_reapack_install_layout_smoke_test_covers_configure_and_runti
     RecursiveCreateDirectory = function(path)
       os.execute("mkdir -p " .. path_utils.sh_quote(path))
     end,
-    ExecProcess = function(command)
-      captured.command = command
-      return 0
+    ExecProcess = function()
+      error("runtime_client.start_job should not use reaper.ExecProcess")
     end,
     genGuid = function()
       return "{job-guid}"
@@ -626,9 +666,14 @@ function tests.test_reapack_install_layout_smoke_test_covers_configure_and_runti
 
   luaunit.assertEquals(err, nil)
   luaunit.assertEquals(job ~= nil, true)
-  luaunit.assertStrContains(captured.command, "PYTHONPATH=" .. path_utils.sh_quote(runtime_source_root))
-  luaunit.assertStrContains(captured.command, path_utils.sh_quote(configured_python))
-  luaunit.assertStrContains(captured.command, "REAPER_RESOURCE_PATH=" .. path_utils.sh_quote(resource_dir))
+  luaunit.assertEquals(wait_for_file(job.result_file), true)
+  local launch_source = assert(path_utils.read_file(job.launch_script))
+  luaunit.assertStrContains(launch_source, "PYTHONPATH=" .. path_utils.sh_quote(runtime_source_root))
+  luaunit.assertStrContains(launch_source, path_utils.sh_quote(configured_python))
+  luaunit.assertStrContains(launch_source, "REAPER_RESOURCE_PATH=" .. path_utils.sh_quote(resource_dir))
+  local log_text = assert(path_utils.read_file(job.log_file))
+  luaunit.assertStrContains(log_text, "PYTHONPATH=" .. runtime_source_root)
+  luaunit.assertStrContains(log_text, "REAPER_RESOURCE_PATH=" .. resource_dir)
 
   os.execute("rm -rf " .. path_utils.sh_quote(root))
 end
@@ -640,7 +685,7 @@ function tests.test_reapack_metadata_uses_app_scoped_data_targets_and_no_setup()
   local index_source = assert(path_utils.read_file("index.xml"))
   local app_paths_source = assert(path_utils.read_file("reaper/lib/app_paths.lua"))
   local runtime_client_source = assert(path_utils.read_file("reaper/lib/runtime_client.lua"))
-  local current_version_start = assert(index_source:find('<version name="0.3.6"', 1, true))
+  local current_version_start = assert(index_source:find('<version name="0.3.7"', 1, true))
   local current_version_block = index_source:sub(current_version_start)
 
   luaunit.assertStrContains(main_source, "-- @author dennech")
@@ -656,7 +701,7 @@ function tests.test_reapack_metadata_uses_app_scoped_data_targets_and_no_setup()
   luaunit.assertEquals(app_paths_source:find("bootstrap_shell", 1, true) ~= nil, false)
   luaunit.assertEquals(runtime_client_source:find("open_bootstrap", 1, true) ~= nil, false)
 
-  luaunit.assertStrContains(index_source, '<version name="0.3.6" author="dennech"')
+  luaunit.assertStrContains(index_source, '<version name="0.3.7" author="dennech"')
   luaunit.assertStrContains(index_source, '<description><![CDATA[{\\rtf1')
   luaunit.assertStrContains(current_version_block, 'main="main" file="REAPER Audio Tag - Configure.lua"')
   luaunit.assertStrContains(current_version_block, '<changelog><![CDATA[')

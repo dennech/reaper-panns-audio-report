@@ -139,10 +139,10 @@ python -m pip install \
   "torchlibrosa==0.1.0"
 ```
 
-Путь к Python, который потом нужно указать в REAPER:
+Папка Python environment, которую потом нужно указать в REAPER:
 
 ```text
-~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python
+~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv
 ```
 
 Опциональный helper script для source checkout или отдельной загрузки репозитория:
@@ -189,24 +189,24 @@ REAPER Audio Tag: Configure
 
 Укажи:
 
-- **Python executable**: файл executable внутри твоего environment, обычно `.../venv/bin/python`
-- **Model file**: сам файл `Cnn14_mAP=0.431.pth`
+- **Python environment**: папку venv, куда установлены зависимости, обычно `.../reaper-panns-item-report/venv`
+- **PANNs model**: сам файл `Cnn14_mAP=0.431.pth`
 
 Примеры:
 
-- предпочтительный путь к Python: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
-- допустимый Homebrew path: `/opt/homebrew/bin/python3.11`
+- предпочтительный Python environment: `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv`
+- expert-путь к Python executable: `/opt/homebrew/bin/python3.11`
 - путь к модели: `/path/to/Cnn14_mAP=0.431.pth`
 
 Потом используй:
 
-- `Validate`
-- `Save`
+- `Check Setup`
+- `Save Configuration`
 
 <!-- TODO: Заменить эту ссылку на реальный скрин Configure-окна перед следующим релизом. -->
 ![Окно REAPER Audio Tag Configure](docs/images/reaper-audio-tag-configure.png)
 
-_Ожидаемый вид Configure: путь к Python, путь к модели, состояние валидации и сохранение._
+_Ожидаемый вид Configure: Python environment, путь к модели, проверка настройки, сохранение и скрытая advanced diagnostics._
 
 ### 7. Запусти отчёт
 
@@ -253,15 +253,16 @@ REAPER Audio Tag
 
 ### Неверный путь к Python
 
-Убедись, что в `Configure` указан именно файл Python executable из твоего локального environment, а не папка и не случайный системный путь.
+Убедись, что в `Configure` указана папка venv, созданная на шаге установки, или конкретный Python executable внутри этой venv.
 
 Хорошие примеры:
 
+- `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv`
 - `~/Library/Application Support/REAPER/Data/reaper-panns-item-report/venv/bin/python`
 - `/opt/homebrew/bin/python3.11`
 - `/usr/local/bin/python3.11`
 
-Длинный путь вида `Cellar/.../Python.framework/...` тоже может работать, но локальный venv path предпочтительнее.
+Длинный путь вида `Cellar/.../Python.framework/...` тоже может работать, но локальная папка venv предпочтительнее, потому что именно там стоят нужные пакеты.
 
 ### Не хватает Python-зависимостей
 

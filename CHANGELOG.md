@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.7
+
+- Fixed REAPER-side runtime startup by replacing the fragile direct `ExecProcess` launch with a per-job shell launcher that handles spaces, Unicode paths, and writes early launcher diagnostics into `runtime.log`.
+- Simplified `Configure` so the Python field accepts either a venv folder or a concrete `python`/`python3.11` executable, with advanced runtime/config paths hidden below the main setup fields.
+- Strengthened Lua coverage with an install-realistic runtime launch smoke test that starts a fake runtime from a path with spaces and waits for `result.json`, preventing silent “Listening...” stalls from passing tests.
+
 ## 0.3.6
 
 - Fixed ReaPack `data` handling by making the canonical shipped runtime path `REAPER/Data/reaper-panns-item-report/runtime/src/...` instead of looking inside `Scripts/...`.
