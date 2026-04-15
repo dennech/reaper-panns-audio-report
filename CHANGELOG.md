@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.8
+
+- Removed `Save and Run` from `REAPER Audio Tag: Configure` so Configure only checks and saves settings.
+- Kept inference launch exclusively in the main `REAPER Audio Tag` action, reducing accidental analysis starts from the configuration screen.
+- Added Lua regression coverage to ensure Configure cannot call `start_analysis()` while the main analysis flow and runtime launcher remain covered.
+
 ## 0.3.7
 
 - Fixed REAPER-side runtime startup by replacing the fragile direct `ExecProcess` launch with a per-job shell launcher that handles spaces, Unicode paths, and writes early launcher diagnostics into `runtime.log`.

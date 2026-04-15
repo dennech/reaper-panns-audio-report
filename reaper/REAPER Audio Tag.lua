@@ -1,5 +1,5 @@
 -- @description REAPER Audio Tag
--- @version 0.3.7
+-- @version 0.3.8
 -- @author dennech
 -- @link https://github.com/dennech/reaper-audio-tag
 -- @screenshot https://raw.githubusercontent.com/dennech/reaper-audio-tag/main/docs/images/reaper-audio-tag-hero.png
@@ -11,9 +11,9 @@
 --
 --   Run `REAPER Audio Tag: Configure` to validate the Python and model paths before analysis.
 -- @changelog
---   - Fixed runtime launch from REAPER by replacing the fragile direct `ExecProcess` command with a per-job shell launcher that handles spaces and Unicode paths.
---   - Simplified `Configure`: users can now choose a Python environment folder, while advanced diagnostics are hidden below the main setup fields.
---   - Added install-realistic runtime-launch coverage that waits for a real `result.json`, so stalled jobs are caught by tests.
+--   - Removed `Save and Run` from `Configure` so configuration can only validate and save paths.
+--   - Kept analysis launch exclusively in the main `REAPER Audio Tag` action.
+--   - Added regression coverage to ensure Configure cannot start inference.
 -- @provides
 --   [main] REAPER Audio Tag - Configure.lua
 --   [nomain] REAPER Audio Tag - Debug Export.lua
@@ -757,16 +757,6 @@ local function render_configure()
   if ImGui.Button(ctx, "Save Configuration") then
     if not save_configuration() then
       state.configure.message = "Check setup first. Save is available after Python and model validation pass."
-    end
-  end
-  ImGui.SameLine(ctx)
-  if ImGui.Button(ctx, "Save and Run") then
-    local ok = save_configuration()
-    if ok then
-      state.notice = nil
-      state.current_view = "compact"
-      state.screen = "boot"
-      start_analysis()
     end
   end
 end
